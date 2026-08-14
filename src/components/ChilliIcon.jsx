@@ -1,8 +1,9 @@
-export default function ChilliIcon({ className = "", title = "Chilli" }) {
+export default function ChilliIcon({ className = "", style, title = "Chilli" }) {
   return (
     <svg
       viewBox="0 0 64 64"
       className={className}
+      style={style}
       role="img"
       aria-label={title}
       fill="none"

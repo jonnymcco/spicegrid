@@ -6,9 +6,11 @@ export default function Cell({
   col,
   state,
   regionColor,
+  regionIconColor,
   regionName,
   isHighlighted,
   isConflict,
+  isHinted,
   borderStyle,
   onClick,
 }) {
@@ -38,20 +40,23 @@ export default function Cell({
     >
       {isHighlighted && <span className="pointer-events-none absolute inset-0 bg-white/25 dark:bg-white/10" />}
       {isConflict && <span className="pointer-events-none absolute inset-0 animate-flash-error" />}
+      {isHinted && (
+        <span className="pointer-events-none absolute inset-0 animate-pulse ring-[3px] ring-inset ring-amber-400" />
+      )}
 
       {state === CELL_X && (
-        <span className="pointer-events-none select-none text-[clamp(1rem,4vw,1.6rem)] font-display font-bold text-black/35 dark:text-white/50">
+        <span
+          className="pointer-events-none select-none text-[clamp(1rem,4vw,1.6rem)] font-display font-bold opacity-45"
+          style={{ color: regionIconColor }}
+        >
           &times;
         </span>
       )}
 
       {state === CELL_CHILLI && (
         <ChilliIcon
-          className={[
-            "h-[62%] w-[62%] drop-shadow-[1px_2px_0_rgba(0,0,0,0.25)]",
-            "animate-pop",
-            isConflict ? "text-riso-ink" : "text-white",
-          ].join(" ")}
+          className={["h-[62%] w-[62%] drop-shadow-[1px_2px_0_rgba(0,0,0,0.25)]", "animate-pop"].join(" ")}
+          style={{ color: isConflict ? "#1B1023" : regionIconColor }}
         />
       )}
     </button>

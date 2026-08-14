@@ -9,11 +9,14 @@ import {
   isSolved,
 } from "./game/validators.js";
 import { getRegionPalette } from "./components/palette.js";
+import { assignRegionColors } from "./components/regionColorAssignment.js";
+import { getHint, describeHint } from "./game/hints.js";
 import Header from "./components/Header.jsx";
 import Board from "./components/Board.jsx";
 import Timer from "./components/Timer.jsx";
 import HowToPlayModal from "./components/HowToPlayModal.jsx";
 import WinModal from "./components/WinModal.jsx";
+import HintPanel from "./components/HintPanel.jsx";
 import Footer from "./components/Footer.jsx";
 
 const BOARD_SIZE = 8;
@@ -65,11 +68,20 @@ export default function App() {
   const [howToOpen, setHowToOpen] = useState(() => !localStorage.getItem(SEEN_TUTORIAL_KEY));
   const [winOpen, setWinOpen] = useState(false);
   const [isDark, setIsDark] = useState(getInitialDarkMode);
+  const [hint, setHint] = useState(null);
 
-  const regionColors = useMemo(() => getRegionPalette(puzzle.size), [puzzle.size]);
+  const regionColors = useMemo(
+    () => assignRegionColors(puzzle.regions, puzzle.size, getRegionPalette(puzzle.size)),
+    [puzzle]
+  );
   const regionNames = useMemo(() => regionColors.map((c) => c.name), [regionColors]);
   const conflicts = useMemo(() => findConflicts(cellStates, puzzle.regions), [cellStates, puzzle]);
   const solved = useMemo(() => isSolved(cellStates, puzzle.regions), [cellStates, puzzle]);
+  const hintedCells = useMemo(() => {
+    if (!hint) return undefined;
+    return new Set(hint.cells.map(([r, c]) => `${r},${c}`));
+  }, [hint]);
+  const hintMessage = useMemo(() => (hint ? describeHint(hint, regionNames) : ""), [hint, regionNames]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -103,6 +115,7 @@ export default function App() {
     setRunning(false);
     setElapsedSeconds(0);
     setWinOpen(false);
+    setHint(null);
   };
 
   const handleCellClick = (row, col) => {
@@ -119,6 +132,16 @@ export default function App() {
     }
 
     setCellStates(next);
+    setHint(null);
+    if (!hasStarted) {
+      setHasStarted(true);
+      setRunning(true);
+    }
+  };
+
+  const handleGetHint = () => {
+    if (solved) return;
+    setHint(getHint(cellStates, puzzle.regions, puzzle.size, puzzle.solution));
     if (!hasStarted) {
       setHasStarted(true);
       setRunning(true);
@@ -140,6 +163,8 @@ export default function App() {
         onHowToPlay={() => setHowToOpen(true)}
         onReset={resetProgress}
         onNewPuzzle={startNewPuzzle}
+        onHint={handleGetHint}
+        hintDisabled={solved}
       />
 
       <main className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col items-center gap-5 px-4 py-6 sm:px-6">
@@ -155,12 +180,15 @@ export default function App() {
           )}
         </div>
 
+        <HintPanel hint={hint} message={hintMessage} onDismiss={() => setHint(null)} />
+
         <Board
           puzzle={puzzle}
           cellStates={cellStates}
           conflicts={conflicts}
           regionColors={regionColors}
           regionNames={regionNames}
+          hintedCells={hintedCells}
           onCellClick={handleCellClick}
         />
 

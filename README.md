@@ -60,6 +60,35 @@ testable.
    same seed always regenerates the exact same puzzle — the hook a future "daily puzzle" feature needs.
    Omit `seed` for a random puzzle each call.
 
+### Region colours
+
+`components/palette.js` holds a curated, food-themed colour list, but region *shape* is random — index-order
+assignment could put two similar warm tones right next to each other. `components/colorMath.js` converts
+each colour to CIE Lab and `components/regionColorAssignment.js` uses that to actually pick which region
+gets which palette colour: it builds the on-screen adjacency graph between regions (including diagonal
+neighbours, since corner-touching regions read as "next to each other" too) and greedily assigns colours so
+that touching regions end up as perceptually distant as the palette allows. `palette.js` also picks a
+contrast-safe icon colour (white or dark ink) per region so the chilli/✕ glyph stays legible on both bright
+and dark backgrounds.
+
+### Hints
+
+`game/hints.js` is a small deduction engine, not an answer-revealer — `getHint` runs a handful of rules a
+human player would actually reason through, in order from easiest to spot to hardest, and stops at the
+first one that applies:
+
+1. **Conflict** — a placed chilli rules out the rest of its row/column/region and the cells touching it.
+2. **Locked candidates** — a region's remaining candidates all sit in one row or column, so that row/column's
+   chilli has to come from this region, ruling out everything else in it.
+3. **Naked single** — a row, column, or region is down to exactly one candidate cell, so it must hold the
+   chilli.
+4. **Fallback** — on the rare board state where none of the above apply yet (usually only right at the very
+   start), it names one cell that the precomputed solution confirms is safe to rule out, with a more general
+   strategy tip.
+
+`describeHint` turns whichever rule fired into a plain-English explanation; the UI highlights the affected
+cell(s) rather than applying the hint automatically, so the player still makes the move themselves.
+
 ### Tuning difficulty / look
 
 - **Board size**: `generatePuzzle({ size })` — the UI currently hardcodes `BOARD_SIZE = 8` in `src/App.jsx`.
@@ -81,15 +110,18 @@ src/
     generateGrid.js       # solution + region generation, uniqueness repair
     solver.js             # constraint solver (count / find solutions)
     validators.js         # adjacency, row/col/region conflict checks, win check
+    hints.js               # deduction-rule hint engine
     __tests__/            # node:test suite for the above
   components/
-    palette.js            # region colour palette
+    palette.js                  # region colour palette + contrast-safe icon colour
+    colorMath.js                 # Lab conversion / distance, contrast ratio helpers
+    regionColorAssignment.js     # assigns palette colours so touching regions stay distinct
     ChilliIcon.jsx
     Board.jsx / Cell.jsx
     Header.jsx / Timer.jsx
-    HowToPlayModal.jsx / WinModal.jsx
+    HowToPlayModal.jsx / WinModal.jsx / HintPanel.jsx
     Footer.jsx             # credit line
-  App.jsx                  # game state, timer, win detection
+  App.jsx                  # game state, timer, win detection, hint wiring
   main.jsx
   index.css                # Tailwind + riso texture utilities
 ```
@@ -113,4 +145,3 @@ This is a static, client-only app — no backend, no env vars, no build-time sec
 - Leaderboards / accounts / backend
 - Shareable result summaries
 - Configurable board size in the UI
-- Hint system (a `findSolution` helper already exists in `solver.js` to build on)

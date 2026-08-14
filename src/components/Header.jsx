@@ -26,6 +26,8 @@ export default function Header({
   onHowToPlay,
   onReset,
   onNewPuzzle,
+  onHint,
+  hintDisabled,
 }) {
   return (
     <header className="riso-halftone relative w-full overflow-hidden border-b-[3px] border-riso-ink bg-riso-purple">
@@ -63,6 +65,14 @@ export default function Header({
             className="rounded-full border-2 border-riso-ink bg-white/90 px-4 py-1.5 font-display text-sm font-bold text-riso-ink shadow-riso-sm transition-transform hover:-translate-y-0.5 active:translate-y-0"
           >
             Reset puzzle
+          </button>
+          <button
+            type="button"
+            onClick={onHint}
+            disabled={hintDisabled}
+            className="rounded-full border-2 border-riso-ink bg-amber-400 px-4 py-1.5 font-display text-sm font-bold text-riso-ink shadow-riso-sm transition-transform hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+          >
+            💡 Hint
           </button>
         </div>
       </div>

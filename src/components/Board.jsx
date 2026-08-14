@@ -23,7 +23,17 @@ function computeBorderStyle(regions, row, col, size) {
   };
 }
 
-export default function Board({ puzzle, cellStates, conflicts, regionColors, regionNames, onCellClick }) {
+const EMPTY_SET = new Set();
+
+export default function Board({
+  puzzle,
+  cellStates,
+  conflicts,
+  regionColors,
+  regionNames,
+  hintedCells = EMPTY_SET,
+  onCellClick,
+}) {
   const { size, regions } = puzzle;
 
   const highlighted = useMemo(() => {
@@ -55,9 +65,11 @@ export default function Board({ puzzle, cellStates, conflicts, regionColors, reg
               col={col}
               state={cellStates[row][col]}
               regionColor={regionColors[regionId]?.hex}
+              regionIconColor={regionColors[regionId]?.iconColor}
               regionName={regionNames[regionId]}
               isHighlighted={highlighted.has(key)}
               isConflict={conflicts.has(key)}
+              isHinted={hintedCells.has(key)}
               borderStyle={computeBorderStyle(regions, row, col, size)}
               onClick={() => onCellClick(row, col)}
             />
