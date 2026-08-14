@@ -56,22 +56,24 @@ testable.
    solution/region pair). This keeps the nice, even region sizes from step 2 while still landing on a
    unique puzzle almost every time.
 
-5. **`solver.js` → `solveByPropagation`**: a unique solution doesn't by itself guarantee the puzzle is
-   solvable *without guessing* — it's possible for a board to have exactly one valid answer while still
-   having a point partway through with no single provably-forced next move, only several branches that all
-   still look possible. (Empirically, this turned out to be the common case, not an edge case: an earlier
-   version of this project only checked uniqueness, and a spot-check found ~99% of "unique" boards had no
-   forced first move at all.) `solveByPropagation` checks the stronger property directly: repeatedly, for
-   every undetermined cell, it tests whether *assuming the opposite* of each possibility breaks solvability
-   entirely — if assuming a cell is empty leaves no valid completion, that cell must hold the chilli; if
-   assuming it holds the chilli leaves no valid completion, it can be ruled out. Applying every such forced
-   deduction it finds, on repeat, either resolves the whole board (provably solvable step-by-step, no
-   guessing, ever) or gets stuck with real ambiguity remaining.
+5. **`hints.js` → `solveByNamedRules`**: a unique solution doesn't by itself guarantee the puzzle is
+   solvable *without guessing* — a board can have exactly one valid answer while still having a point
+   partway through with no move a player can actually justify by looking at the board. (Empirically this
+   turned out to be the common case, not an edge case — see the "On hints" section below for the numbers.)
+   `solveByNamedRules` mechanically drives the board using nothing but `getHint`'s named, glanceable rules
+   (never its constraint-propagation last resort) and reports whether that alone fully solves it.
+   `generatePuzzle` rejects and regenerates any board this can't fully resolve, same as a non-unique one.
 
-6. **`generatePuzzle({ size, seed })`** ties it together, rejecting (and regenerating) any board that isn't
-   fully solvable per step 5, and accepts a `seed` (any string/number) so the same seed always regenerates
-   the exact same puzzle — the hook a future "daily puzzle" feature needs. Omit `seed` for a random puzzle
-   each call.
+6. **`solver.js` → `solveByPropagation`**: run as a belt-and-suspenders check *in addition to* step 5.
+   It's strictly more powerful than the named rules — for every undetermined cell, it tests whether
+   *assuming the opposite* of each possibility breaks solvability entirely, which can prove a cell forced
+   even when no named pattern applies — so it should always already be true once step 5 passes. It's kept
+   as an independent check purely as a safety net against a bug in the named-rule logic, not because it's
+   expected to catch anything on its own.
+
+7. **`generatePuzzle({ size, seed })`** ties it together and accepts a `seed` (any string/number) so the
+   same seed always regenerates the exact same puzzle — the hook a future "daily puzzle" feature needs.
+   Omit `seed` for a random puzzle each call.
 
 ### Region colours
 
@@ -87,42 +89,57 @@ and dark backgrounds.
 ### Hints
 
 `game/hints.js` is a small deduction engine, not an answer-revealer — `getHint` runs a handful of rules a
-human player would actually reason through, in order from easiest to spot to hardest, and stops at the
-first one that applies:
+human player can actually verify by looking at a small, fixed set of cells and counting (never "assume X
+and check the whole rest of the board"), in order from easiest to spot to hardest, and stops at the first
+one that applies:
 
 1. **Conflict** — a placed chilli rules out the rest of its row/column/region and the cells touching it.
-2. **Locked candidates** — a region's remaining candidates all sit in one row or column, so that row/column's
+2. **Region-locked** — a region's remaining candidates all sit in one row (or column), so that row's/column's
    chilli has to come from this region, ruling out everything else in it.
-3. **Naked single** — a row, column, or region is down to exactly one candidate cell, so it must hold the
+3. **Axis-locked** — the mirror image of #2: a row's (or column's) remaining candidates all sit in one
+   region, so that region's chilli has to be in this row, ruling out everything else in the region.
+4. **Naked single** — a row, column, or region is down to exactly one candidate cell, so it must hold the
    chilli.
-4. **Forced** — none of the named patterns above apply yet (uncommon, and mostly early on). Falls through to
-   `solveByPropagation`'s assume-the-opposite-and-check reasoning to find one cell whose status is provably
-   forced from the *current* board state — no peeking at the precomputed solution anywhere in this file.
-   Since every generated puzzle is already verified fully solvable this way before it's ever shown to a
-   player, this tier is guaranteed to find something whenever the named patterns don't.
+5. **Subset-locked** — a generalisation of #2: two or three regions, considered together, have all their
+   remaining candidates confined to exactly that many rows (or columns) between them — since each needs a
+   different one and there are exactly enough to go around, no *other* region can use any of those either.
+6. **Forced** — every rule above failed to make progress. Falls through to `solver.js`'s constraint
+   propagation (assume the opposite, check whether *any* completion of the whole board remains) — this is
+   the same reasoning `solveByPropagation` uses, and it's strictly more powerful than rules 1-5, but a
+   player can't verify it by eye. This tier exists purely as defensive code; it should never actually
+   trigger during normal play, because every generated puzzle is already required to be solvable using only
+   rules 1-5 (see `solveByNamedRules` above) before it's ever shown to a player.
 
 `describeHint` turns whichever rule fired into a plain-English explanation; the UI highlights the affected
 cell(s) rather than applying the hint automatically, so the player still makes the move themselves.
 
-**On "no guessing needed":** this is an actual, verified guarantee, not just a hope — `generatePuzzle` never
-returns a board that `solveByPropagation` can't fully resolve, and `getHint` is built on that same honest
-reasoning (not the puzzle's precomputed answer), so a player who only ever takes forced moves — with or
-without clicking Hint — can always reach the solution. `src/game/__tests__/solver.test.js` covers this
-directly, including a negative case (a deliberately ambiguous board) confirming the checker correctly
-reports "not solvable without guessing" rather than papering over real ambiguity.
+**Why rule 6 exists but (in practice) never fires:** the first version of this generator only checked that a
+puzzle had a unique solution, and separately, a hint engine with just rules 1, 2, and 4 above. Those two
+facts turned out not to compose the way you'd hope — checking mechanically, **only 4 of 100** generated
+puzzles were actually solvable using those rules alone; the rest hit a point where the only way to make
+progress was opaque "assume a placement and verify the entire rest of the board still solves" reasoning,
+which a player can't do by eye and which isn't meaningfully different from guessing. Rules 3 and 5 above
+were added specifically to close that gap, and `generatePuzzle` now *requires* rules 1-5 to fully solve a
+board before shipping it — with that gate in place, checking the same way found **0 of 40** generated
+puzzles needing rule 6 at all. `src/game/__tests__/hints.test.js` and `solver.test.js` cover this directly,
+including negative cases (deliberately ambiguous boards) confirming the checkers correctly report "not
+solvable this way" rather than papering over real ambiguity.
 
 ### Tuning difficulty / look
 
 - **Board size**: `generatePuzzle({ size })` — the UI currently hardcodes `BOARD_SIZE = 8` in `src/App.jsx`.
-  Sizes 4–8 generate in single-digit milliseconds. The no-guessing check (`solveByPropagation`) adds real
-  cost as size grows — 9 averages ~50ms and 10 averages several hundred ms in testing — so sizes above 8
-  aren't currently exposed in the UI; raising the default would want a loading state.
+  Requiring named-rule solvability (not just uniqueness) is a much stricter filter — most random layouts
+  fail it, so generation now retries considerably more than it used to before finding one that passes. In
+  testing, size 8 still generates in ~50ms on average (fine for an interactive click); size 9 averages
+  several hundred ms and size 10 can take seconds, so sizes above 8 aren't currently exposed in the UI —
+  raising the default would want a loading state, and possibly a smarter generation strategy than retry-
+  until-lucky for the larger sizes.
 - **Region balance**: `growRegions`'s smallest-first rule is what keeps regions even; there's no separate
   tunable knob today, but a max-region-size cap could be reintroduced in `generateGrid.js` if you want to
   force even tighter balance (at some cost to generation speed/success rate).
 - **Generation budget**: `MAX_OUTER_ATTEMPTS` and `MAX_REPAIR_STEPS` at the top of `generateGrid.js` bound
-  how hard generation tries (uniqueness repair, then the no-guessing check) before giving up. Raise them if
-  you push board size up and start seeing generation failures.
+  how hard generation tries (uniqueness repair, then the named-rule and propagation checks) before giving
+  up. Raise them if you push board size up and start seeing generation failures.
 
 ## Project structure
 

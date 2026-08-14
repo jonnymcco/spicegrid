@@ -1,7 +1,7 @@
 // Framework-agnostic puzzle generation. No React, no DOM, no browser APIs —
 // safe to reuse from a CLI, a test suite, or a future backend.
 //
-// A puzzle is generated in four steps:
+// A puzzle is generated in five steps:
 //   1. Find a valid "solution": one cell per row/column such that no two
 //      solution cells touch (including diagonally).
 //   2. Grow N irregular, roughly-balanced regions outward from the
@@ -13,22 +13,32 @@
 //      makes small, targeted, connectivity-preserving boundary tweaks that
 //      each rule out one duplicate solution, until only one is left (or it
 //      gets stuck, in which case the caller does start over).
-//   4. Confirm the board is solvable *without guessing*: a unique solution
-//      doesn't by itself guarantee every step along the way is logically
-//      forced (it's possible to have exactly one valid answer while still
-//      hitting a point with no provably-forced next move). `solveByPropagation`
-//      in solver.js checks this properly — repeatedly testing whether a
-//      cell's status is forced by seeing if the opposite assumption breaks
-//      solvability — and any board it can't fully resolve this way gets
-//      thrown out and regenerated, same as a non-unique one.
+//   4. Confirm the board is solvable using only small, glanceable
+//      deductions — never a guess, and never reasoning a player can't
+//      verify by eye. `hints.js`'s `solveByNamedRules` mechanically drives
+//      the board using nothing but its named rules (conflict elimination,
+//      locked/subset candidates, naked singles); a unique solution turned
+//      out NOT to imply this on its own — an early version of this
+//      generator only checked uniqueness, and it turned out ~99% of
+//      "unique" boards had no such solving path at all, meaning the only
+//      way to make progress was genuinely opaque "assume X, check the
+//      *entire* rest of the board" reasoning. Any board that isn't
+//      solvable this way gets thrown out and regenerated, same as a
+//      non-unique one.
+//   5. Belt-and-suspenders: also confirm with `solveByPropagation`, a
+//      strictly more powerful (but not player-legible) check. Since it can
+//      find everything the named rules can and more, this should always
+//      already be true once step 4 passes — it's here as a safety net in
+//      case of a bug in the named-rule logic, not as an independent gate.
 //
 // See solver.js for the solution search and validators.js for the shared
 // rule predicates (adjacency, row/col/region uniqueness) used at play time.
 
 import { createRng } from "./rng.js";
 import { findSolutions, solveByPropagation } from "./solver.js";
+import { solveByNamedRules } from "./hints.js";
 
-const MAX_OUTER_ATTEMPTS = 150;
+const MAX_OUTER_ATTEMPTS = 3000;
 const MAX_REPAIR_STEPS = 100;
 const MAX_SOLUTION_ATTEMPTS = 200;
 
@@ -328,9 +338,12 @@ export function generatePuzzle({ size = 8, seed } = {}) {
     if (!repairToUnique(size, regions, rng)) continue;
 
     // Uniqueness alone doesn't guarantee the puzzle is solvable without
-    // guessing — a board can have exactly one valid answer while still
-    // having no single forced next move at some point along the way.
-    // Reject anything that isn't fully solvable through forced deduction.
+    // guessing, and it doesn't guarantee that solving path is something a
+    // player can actually follow. Require both: solvable using only
+    // small, glanceable deductions (the real requirement), double-checked
+    // against the strictly-more-powerful propagation solver as a safety
+    // net against a bug in the named-rule logic.
+    if (!solveByNamedRules(regions, size)) continue;
     if (!solveByPropagation({ size, regions }).solved) continue;
 
     const [finalSolution] = findSolutions({ size, regions }, 1);

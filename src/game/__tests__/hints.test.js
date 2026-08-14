@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { getHint, computeCandidates, describeHint } from "../hints.js";
+import { getHint, computeCandidates, describeHint, solveByNamedRules } from "../hints.js";
 import { createEmptyCellStates, CELL_CHILLI, CELL_EMPTY, CELL_X, isSolved } from "../validators.js";
+import { generatePuzzle } from "../generateGrid.js";
 
 // Four 2x2 quadrant regions on a 4x4 board — enough structure to exercise
 // each deduction rule without needing a full generated puzzle.
@@ -84,6 +85,38 @@ test("locked-candidate rule: a region confined to one row rules out the rest of 
   );
 });
 
+test("locked-candidate rule: a region confined to one column rules out the rest of that column", () => {
+  // Mirror of the row case above, along the other axis — regression test
+  // for a bug where the column variant's hint carried a `column` property
+  // instead of the `col` property describeHint actually reads, producing
+  // a "column NaN" message.
+  const size = 4;
+  const cellStates = createEmptyCellStates(size);
+  // Region 1 (top-right quadrant) = {(0,2),(0,3),(1,2),(1,3)}; eliminate
+  // its column-3 cells so its only remaining candidates, (0,2) and (1,2),
+  // sit in column 2.
+  cellStates[0][3] = CELL_X;
+  cellStates[1][3] = CELL_X;
+
+  const hint = getHint(cellStates, QUADRANT_REGIONS, size);
+
+  assert.equal(hint.type, "eliminate");
+  assert.equal(hint.reason, "locked-column");
+  assert.equal(hint.regionId, 1);
+  assert.equal(hint.col, 2);
+  assert.deepEqual(
+    cellsToSet(hint.cells),
+    cellsToSet([
+      [2, 2],
+      [3, 2],
+    ])
+  );
+
+  const message = describeHint(hint, ["Chilli Red", "Habanero Orange", "Jalapeño Green", "Golden Turmeric"]);
+  assert.doesNotMatch(message, /NaN/);
+  assert.match(message, /column 3/i);
+});
+
 test("naked-single rule: a region down to one candidate must take its chilli there", () => {
   const size = 4;
   const cellStates = createEmptyCellStates(size);
@@ -108,6 +141,91 @@ test("naked-single rule: a region down to one candidate must take its chilli the
   assert.equal(hint.reason, "naked-single-region");
   assert.equal(hint.regionId, 1);
   assert.deepEqual(hint.cells, [[0, 2]]);
+});
+
+test("axis-locked rule: a row confined to a single region rules out that region elsewhere", () => {
+  // Found directly from a real (pre-repair) region layout, on a fresh
+  // empty board: row 0's only remaining candidates are all region 0, so
+  // region 0's chilli must be in row 0 — ruling out (1,1), its only other
+  // still-open cell.
+  const size = 5;
+  const regions = [
+    [0, 0, 0, 0, 0],
+    [2, 0, 1, 1, 1],
+    [2, 2, 2, 1, 4],
+    [2, 3, 3, 1, 4],
+    [3, 3, 3, 4, 4],
+  ];
+  const cellStates = createEmptyCellStates(size);
+
+  const hint = getHint(cellStates, regions, size);
+
+  assert.equal(hint.type, "eliminate");
+  assert.equal(hint.reason, "row-locked");
+  assert.equal(hint.row, 0);
+  assert.equal(hint.regionId, 0);
+  assert.deepEqual(hint.cells, [[1, 1]]);
+});
+
+test("subset rule: two regions collectively confined to two rows rule out everyone else from those rows", () => {
+  // Found directly from a real (pre-repair) region layout: regions 3 and
+  // 4 have no candidates left outside rows 3-4 between them, so — same
+  // idea as the single-region case, one level up — no *other* region can
+  // use those two rows either.
+  const size = 5;
+  const regions = [
+    [0, 0, 2, 1, 1],
+    [0, 0, 2, 1, 1],
+    [2, 2, 2, 1, 1],
+    [4, 4, 4, 1, 3],
+    [4, 4, 4, 3, 3],
+  ];
+  const cellStates = createEmptyCellStates(size);
+
+  const hint = getHint(cellStates, regions, size);
+
+  assert.equal(hint.type, "eliminate");
+  assert.equal(hint.reason, "subset-row");
+  assert.deepEqual(hint.regionIds, [3, 4]);
+  assert.deepEqual(hint.rows, [3, 4]);
+  assert.deepEqual(hint.cells, [[3, 3]]);
+});
+
+test("subset rule: two regions collectively confined to two columns rule out everyone else from those columns", () => {
+  // Column-axis counterpart of the row case above, found directly from a
+  // real (pre-repair) region layout — regions 1 and 4 have no candidates
+  // left outside columns 1-2 between them.
+  const size = 5;
+  const regions = [
+    [2, 1, 1, 0, 0],
+    [2, 1, 1, 0, 0],
+    [2, 1, 1, 3, 0],
+    [2, 4, 3, 3, 3],
+    [2, 4, 4, 3, 3],
+  ];
+  const cellStates = createEmptyCellStates(size);
+
+  const hint = getHint(cellStates, regions, size);
+
+  assert.equal(hint.type, "eliminate");
+  assert.equal(hint.reason, "subset-column");
+  assert.deepEqual(hint.regionIds, [1, 4]);
+  assert.deepEqual(hint.cols, [1, 2]);
+  assert.deepEqual(hint.cells, [[3, 2]]);
+
+  const message = describeHint(hint, ["Chilli Red", "Habanero Orange", "Jalapeño Green", "Golden Turmeric", "Cocoa"]);
+  assert.doesNotMatch(message, /NaN/);
+});
+
+test("solveByNamedRules solves a real generated puzzle using only rules 1-5, and rejects a genuinely ambiguous board", () => {
+  // generateGrid.js requires exactly this property of every puzzle it
+  // ships, so a real generated board must pass here.
+  const puzzle = generatePuzzle({ size: 5, seed: "solve-named-rules-check" });
+  assert.equal(solveByNamedRules(puzzle.regions, puzzle.size), true);
+
+  // A genuinely ambiguous board (two valid solutions, nothing forced from
+  // the start) must correctly fail rather than claim success.
+  assert.equal(solveByNamedRules(QUADRANT_REGIONS, 4), false);
 });
 
 test("still offers an honest partial deduction on an ambiguous board, without resolving the ambiguity", () => {
@@ -154,18 +272,21 @@ test("never fabricates a full solve on a genuinely ambiguous board", () => {
 });
 
 test("forced rule: finds a deduction beyond the named patterns, with no solution passed in at all", () => {
-  // Taken from a real generated 6x6 puzzle: on the very first move, none
-  // of the named patterns (conflict/locked/naked-single) fire, but full
-  // constraint propagation can still prove (0,0) is impossible — getHint
-  // is called with no solution argument, so this can only be legitimate.
-  const size = 6;
+  // A raw (not yet uniqueness/named-rule-repaired) region layout where,
+  // on the very first move, none of the named patterns (conflict/locked/
+  // subset/axis-locked/naked-single) fire, but full constraint
+  // propagation can still prove (1,1) is impossible. getHint is called
+  // with no solution argument, so this can only be legitimate reasoning.
+  // (Real generated puzzles are specifically repaired to avoid ever
+  // needing this tier — see generateGrid.js — so a raw layout is used
+  // here purely to exercise the rule 6 code path at all.)
+  const size = 5;
   const regions = [
-    [2, 2, 0, 0, 0, 1],
-    [4, 2, 0, 3, 1, 1],
-    [4, 2, 3, 3, 3, 3],
-    [4, 2, 5, 3, 3, 3],
-    [4, 4, 5, 5, 3, 3],
-    [5, 5, 5, 3, 3, 3],
+    [0, 0, 0, 0, 0],
+    [2, 2, 1, 1, 1],
+    [2, 2, 1, 1, 3],
+    [2, 2, 4, 3, 3],
+    [4, 4, 4, 4, 3],
   ];
   const cellStates = createEmptyCellStates(size);
 
@@ -173,7 +294,7 @@ test("forced rule: finds a deduction beyond the named patterns, with no solution
 
   assert.equal(hint.type, "eliminate");
   assert.equal(hint.reason, "forced");
-  assert.deepEqual(hint.cells, [[0, 0]]);
+  assert.deepEqual(hint.cells, [[1, 1]]);
 });
 
 test("describeHint produces a non-empty, rule-appropriate sentence for every reason", () => {
