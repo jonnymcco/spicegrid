@@ -141,7 +141,7 @@ export default function App() {
 
   const handleGetHint = () => {
     if (solved) return;
-    setHint(getHint(cellStates, puzzle.regions, puzzle.size, puzzle.solution));
+    setHint(getHint(cellStates, puzzle.regions, puzzle.size));
     if (!hasStarted) {
       setHasStarted(true);
       setRunning(true);

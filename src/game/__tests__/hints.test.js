@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { getHint, computeCandidates, describeHint } from "../hints.js";
-import { createEmptyCellStates, CELL_CHILLI, CELL_X } from "../validators.js";
+import { createEmptyCellStates, CELL_CHILLI, CELL_EMPTY, CELL_X, isSolved } from "../validators.js";
 
 // Four 2x2 quadrant regions on a 4x4 board — enough structure to exercise
 // each deduction rule without needing a full generated puzzle.
@@ -110,21 +110,70 @@ test("naked-single rule: a region down to one candidate must take its chilli the
   assert.deepEqual(hint.cells, [[0, 2]]);
 });
 
-test("fallback rule: uses the known solution when no deduction rule applies yet", () => {
+test("still offers an honest partial deduction on an ambiguous board, without resolving the ambiguity", () => {
+  // QUADRANT_REGIONS has exactly two valid solutions —
+  // [(0,1),(1,3),(2,0),(3,2)] and [(0,2),(1,0),(2,3),(3,1)] — and no row
+  // can be fully pinned yet. But (0,0) happens to be absent from *both* of
+  // them, so ruling it out is still a legitimate, honest deduction (true
+  // in every remaining possibility), not a guess between the two answers.
   const size = 4;
   const cellStates = createEmptyCellStates(size);
-  const solution = [
-    [0, 0],
-    [1, 2],
-    [2, 1],
-    [3, 3],
-  ];
 
-  const hint = getHint(cellStates, QUADRANT_REGIONS, size, solution);
+  const hint = getHint(cellStates, QUADRANT_REGIONS, size);
 
   assert.equal(hint.type, "eliminate");
-  assert.equal(hint.reason, "fallback");
-  assert.deepEqual(hint.cells, [[0, 1]]);
+  assert.equal(hint.reason, "forced");
+  assert.deepEqual(hint.cells, [[0, 0]]);
+});
+
+test("never fabricates a full solve on a genuinely ambiguous board", () => {
+  // Mechanically apply every hint getHint offers until it runs out. Since
+  // the two solutions above never fully agree, it must eventually get
+  // stuck (return null) rather than ever confidently claiming the board
+  // is solved — that would mean it had silently picked one answer over
+  // the other, i.e. guessed.
+  const size = 4;
+  let cellStates = createEmptyCellStates(size);
+  let hint;
+  let steps = 0;
+
+  while ((hint = getHint(cellStates, QUADRANT_REGIONS, size)) && steps < 50) {
+    if (hint.type === "eliminate") {
+      for (const [r, c] of hint.cells) {
+        if (cellStates[r][c] === CELL_EMPTY) cellStates[r][c] = CELL_X;
+      }
+    } else {
+      const [r, c] = hint.cells[0];
+      cellStates[r][c] = CELL_CHILLI;
+    }
+    steps++;
+  }
+
+  assert.equal(hint, null, "should get stuck rather than loop forever or fabricate progress");
+  assert.equal(isSolved(cellStates, QUADRANT_REGIONS), false, "must never claim an ambiguous board is solved");
+});
+
+test("forced rule: finds a deduction beyond the named patterns, with no solution passed in at all", () => {
+  // Taken from a real generated 6x6 puzzle: on the very first move, none
+  // of the named patterns (conflict/locked/naked-single) fire, but full
+  // constraint propagation can still prove (0,0) is impossible — getHint
+  // is called with no solution argument, so this can only be legitimate.
+  const size = 6;
+  const regions = [
+    [2, 2, 0, 0, 0, 1],
+    [4, 2, 0, 3, 1, 1],
+    [4, 2, 3, 3, 3, 3],
+    [4, 2, 5, 3, 3, 3],
+    [4, 4, 5, 5, 3, 3],
+    [5, 5, 5, 3, 3, 3],
+  ];
+  const cellStates = createEmptyCellStates(size);
+
+  const hint = getHint(cellStates, regions, size);
+
+  assert.equal(hint.type, "eliminate");
+  assert.equal(hint.reason, "forced");
+  assert.deepEqual(hint.cells, [[0, 0]]);
 });
 
 test("describeHint produces a non-empty, rule-appropriate sentence for every reason", () => {
@@ -140,8 +189,8 @@ test("describeHint produces a non-empty, rule-appropriate sentence for every rea
   const nakedHint = { type: "place", reason: "naked-single-row", cells: [[0, 2]], row: 0 };
   assert.match(describeHint(nakedHint, regionNames), /has to go there/i);
 
-  const fallbackHint = { type: "eliminate", reason: "fallback", cells: [[0, 1]] };
-  assert.match(describeHint(fallbackHint, regionNames), /isn't part of the solution/i);
+  const forcedHint = { type: "eliminate", reason: "forced", cells: [[0, 1]] };
+  assert.match(describeHint(forcedHint, regionNames), /no valid way/i);
 
   assert.match(describeHint(null, regionNames), /no hint/i);
   void size;

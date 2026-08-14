@@ -56,9 +56,22 @@ testable.
    solution/region pair). This keeps the nice, even region sizes from step 2 while still landing on a
    unique puzzle almost every time.
 
-5. **`generatePuzzle({ size, seed })`** ties it together and accepts a `seed` (any string/number) so the
-   same seed always regenerates the exact same puzzle — the hook a future "daily puzzle" feature needs.
-   Omit `seed` for a random puzzle each call.
+5. **`solver.js` → `solveByPropagation`**: a unique solution doesn't by itself guarantee the puzzle is
+   solvable *without guessing* — it's possible for a board to have exactly one valid answer while still
+   having a point partway through with no single provably-forced next move, only several branches that all
+   still look possible. (Empirically, this turned out to be the common case, not an edge case: an earlier
+   version of this project only checked uniqueness, and a spot-check found ~99% of "unique" boards had no
+   forced first move at all.) `solveByPropagation` checks the stronger property directly: repeatedly, for
+   every undetermined cell, it tests whether *assuming the opposite* of each possibility breaks solvability
+   entirely — if assuming a cell is empty leaves no valid completion, that cell must hold the chilli; if
+   assuming it holds the chilli leaves no valid completion, it can be ruled out. Applying every such forced
+   deduction it finds, on repeat, either resolves the whole board (provably solvable step-by-step, no
+   guessing, ever) or gets stuck with real ambiguity remaining.
+
+6. **`generatePuzzle({ size, seed })`** ties it together, rejecting (and regenerating) any board that isn't
+   fully solvable per step 5, and accepts a `seed` (any string/number) so the same seed always regenerates
+   the exact same puzzle — the hook a future "daily puzzle" feature needs. Omit `seed` for a random puzzle
+   each call.
 
 ### Region colours
 
@@ -82,24 +95,34 @@ first one that applies:
    chilli has to come from this region, ruling out everything else in it.
 3. **Naked single** — a row, column, or region is down to exactly one candidate cell, so it must hold the
    chilli.
-4. **Fallback** — on the rare board state where none of the above apply yet (usually only right at the very
-   start), it names one cell that the precomputed solution confirms is safe to rule out, with a more general
-   strategy tip.
+4. **Forced** — none of the named patterns above apply yet (uncommon, and mostly early on). Falls through to
+   `solveByPropagation`'s assume-the-opposite-and-check reasoning to find one cell whose status is provably
+   forced from the *current* board state — no peeking at the precomputed solution anywhere in this file.
+   Since every generated puzzle is already verified fully solvable this way before it's ever shown to a
+   player, this tier is guaranteed to find something whenever the named patterns don't.
 
 `describeHint` turns whichever rule fired into a plain-English explanation; the UI highlights the affected
 cell(s) rather than applying the hint automatically, so the player still makes the move themselves.
 
+**On "no guessing needed":** this is an actual, verified guarantee, not just a hope — `generatePuzzle` never
+returns a board that `solveByPropagation` can't fully resolve, and `getHint` is built on that same honest
+reasoning (not the puzzle's precomputed answer), so a player who only ever takes forced moves — with or
+without clicking Hint — can always reach the solution. `src/game/__tests__/solver.test.js` covers this
+directly, including a negative case (a deliberately ambiguous board) confirming the checker correctly
+reports "not solvable without guessing" rather than papering over real ambiguity.
+
 ### Tuning difficulty / look
 
 - **Board size**: `generatePuzzle({ size })` — the UI currently hardcodes `BOARD_SIZE = 8` in `src/App.jsx`.
-  Sizes 4–10 generate quickly (single-digit to low-hundreds of milliseconds); larger sizes get
-  progressively slower to find a unique layout and aren't currently exposed in the UI.
+  Sizes 4–8 generate in single-digit milliseconds. The no-guessing check (`solveByPropagation`) adds real
+  cost as size grows — 9 averages ~50ms and 10 averages several hundred ms in testing — so sizes above 8
+  aren't currently exposed in the UI; raising the default would want a loading state.
 - **Region balance**: `growRegions`'s smallest-first rule is what keeps regions even; there's no separate
   tunable knob today, but a max-region-size cap could be reintroduced in `generateGrid.js` if you want to
   force even tighter balance (at some cost to generation speed/success rate).
-- **Repair budget**: `MAX_OUTER_ATTEMPTS` and `MAX_REPAIR_STEPS` at the top of `generateGrid.js` bound how
-  hard generation tries before giving up. Raise them if you push board size up and start seeing generation
-  failures.
+- **Generation budget**: `MAX_OUTER_ATTEMPTS` and `MAX_REPAIR_STEPS` at the top of `generateGrid.js` bound
+  how hard generation tries (uniqueness repair, then the no-guessing check) before giving up. Raise them if
+  you push board size up and start seeing generation failures.
 
 ## Project structure
 

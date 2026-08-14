@@ -14,11 +14,23 @@
 //                      cell in that row.
 //   3. naked-single  — a row, column, or region has exactly one
 //                      candidate cell left, so it must hold the chilli.
-//   4. fallback      — none of the above apply (rare — usually only right
-//                      at the start of a fresh puzzle); falls back to the
-//                      precomputed solution to name one safely-eliminable
-//                      cell, with a more general strategy tip instead of
-//                      a rule-specific one.
+//   4. forced        — none of the named patterns above apply (uncommon —
+//                      mostly early on, before enough is marked for a
+//                      pattern to stand out); falls through to
+//                      `solver.js`'s constraint propagation, which tests
+//                      each remaining possibility by assuming its opposite
+//                      and checking whether that leaves any valid way to
+//                      finish the puzzle at all. If assuming a cell is
+//                      empty breaks solvability, it has to hold the
+//                      chilli; if assuming it holds the chilli breaks
+//                      solvability, it can be ruled out. This is strictly
+//                      *stronger* than the named rules — genuinely never a
+//                      guess, just deeper reasoning than fits a one-line
+//                      pattern name — and every generated puzzle is
+//                      verified solvable this way before it's ever shown
+//                      to a player (see `generateGrid.js`), so this tier
+//                      is guaranteed to find something whenever the named
+//                      rules don't.
 //
 // Each rule is checked against the *true* remaining candidate set, which
 // factors in eliminations implied by placed chillies even if the player
@@ -27,6 +39,7 @@
 // ones.
 
 import { CELL_CHILLI, CELL_EMPTY, CELL_X } from "./validators.js";
+import { countConstrainedSolutions } from "./solver.js";
 
 const ORTHOGONAL_NEIGHBORS = [
   [-1, 0],
@@ -225,38 +238,74 @@ function findNakedSingleHint(cellStates, regions, size, candidates) {
   return null;
 }
 
-/** Rule 4: nothing above applies — fall back to the known solution for one safe elimination. */
-function findFallbackHint(cellStates, size, candidates, solution) {
-  if (!solution) return null;
-  const solutionSet = new Set(solution.map(([r, c]) => key(r, c)));
+/** The current board state, expressed as constraints for `countConstrainedSolutions`. */
+function buildConstraints(cellStates, size) {
+  const forcedCol = new Array(size).fill(-1);
+  const excluded = new Set();
+
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
-      if (candidates[r][c] && !solutionSet.has(key(r, c))) {
-        return { type: "eliminate", reason: "fallback", cells: [[r, c]] };
+      if (cellStates[r][c] === CELL_CHILLI) forcedCol[r] = c;
+      if (cellStates[r][c] === CELL_X) excluded.add(key(r, c));
+    }
+  }
+
+  return { forcedCol, excluded };
+}
+
+/**
+ * Rule 4: no named pattern applies — fall through to constraint
+ * propagation and find one cell whose status is *provably forced* from
+ * here, by testing whether assuming the opposite breaks solvability.
+ * Doesn't need or consult the precomputed solution at all — it derives
+ * the answer honestly from the current board state, the same way
+ * `generateGrid.js` verifies every puzzle is solvable this way before
+ * it's shown to a player.
+ */
+function findForcedHint(cellStates, regions, size) {
+  const { forcedCol, excluded } = buildConstraints(cellStates, size);
+
+  for (let row = 0; row < size; row++) {
+    if (forcedCol[row] !== -1) continue;
+
+    for (let col = 0; col < size; col++) {
+      if (excluded.has(key(row, col))) continue;
+
+      const assumeEmpty = new Set(excluded);
+      assumeEmpty.add(key(row, col));
+      const waysIfEmpty = countConstrainedSolutions({ size, regions }, forcedCol, assumeEmpty, 1);
+      if (waysIfEmpty === 0) {
+        return { type: "place", reason: "forced", cells: [[row, col]] };
+      }
+
+      const assumeChilli = forcedCol.slice();
+      assumeChilli[row] = col;
+      const waysIfChilli = countConstrainedSolutions({ size, regions }, assumeChilli, excluded, 1);
+      if (waysIfChilli === 0) {
+        return { type: "eliminate", reason: "forced", cells: [[row, col]] };
       }
     }
   }
+
   return null;
 }
 
 /**
  * Finds the next best hint for the current board state, or null if the
- * puzzle is already solved (or, in principle, un-hintable).
+ * puzzle is already solved.
  *
  * @param {string[][]} cellStates
  * @param {number[][]} regions
  * @param {number} size
- * @param {number[][]} [solution] - optional [row,col] pairs, used only as
- *   a last-resort fallback when no rule-based deduction is available.
  */
-export function getHint(cellStates, regions, size, solution) {
+export function getHint(cellStates, regions, size) {
   const candidates = computeCandidates(cellStates, regions, size);
 
   return (
     findConflictHint(cellStates, regions, size) ||
     findLockedCandidateHint(cellStates, regions, size, candidates) ||
     findNakedSingleHint(cellStates, regions, size, candidates) ||
-    findFallbackHint(cellStates, size, candidates, solution)
+    findForcedHint(cellStates, regions, size)
   );
 }
 
@@ -296,11 +345,16 @@ export function describeHint(hint, regionNames) {
       return `Row ${ORDINAL(hint.row)} has only one cell left that isn't ruled out — its chilli has to go there.`;
     case "naked-single-column":
       return `Column ${ORDINAL(hint.col)} has only one cell left that isn't ruled out — its chilli has to go there.`;
-    case "fallback": {
+    case "forced": {
       const [r, c] = hint.cells[0];
-      return `Try ruling out row ${ORDINAL(r)}, column ${ORDINAL(
+      if (hint.type === "place") {
+        return `This one takes deeper reasoning: try assuming row ${ORDINAL(r)}'s chilli is anywhere except column ${ORDINAL(
+          c
+        )} — every one of those leaves no valid way to finish the rest of the board. So it has to go there.`;
+      }
+      return `This one takes deeper reasoning: assuming a chilli at row ${ORDINAL(r)}, column ${ORDINAL(
         c
-      )} — it isn't part of the solution. Look for cells that share a row, column, or region with a chilli you've placed, or that would touch one, and mark them with an ✕ to narrow things down.`;
+      )} leaves no valid way to finish the rest of the board — so it can be ruled out.`;
     }
     default:
       return "Here's a cell to look at.";

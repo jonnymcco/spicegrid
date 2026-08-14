@@ -1,7 +1,7 @@
 // Framework-agnostic puzzle generation. No React, no DOM, no browser APIs —
 // safe to reuse from a CLI, a test suite, or a future backend.
 //
-// A puzzle is generated in three steps:
+// A puzzle is generated in four steps:
 //   1. Find a valid "solution": one cell per row/column such that no two
 //      solution cells touch (including diagonally).
 //   2. Grow N irregular, roughly-balanced regions outward from the
@@ -13,12 +13,20 @@
 //      makes small, targeted, connectivity-preserving boundary tweaks that
 //      each rule out one duplicate solution, until only one is left (or it
 //      gets stuck, in which case the caller does start over).
+//   4. Confirm the board is solvable *without guessing*: a unique solution
+//      doesn't by itself guarantee every step along the way is logically
+//      forced (it's possible to have exactly one valid answer while still
+//      hitting a point with no provably-forced next move). `solveByPropagation`
+//      in solver.js checks this properly — repeatedly testing whether a
+//      cell's status is forced by seeing if the opposite assumption breaks
+//      solvability — and any board it can't fully resolve this way gets
+//      thrown out and regenerated, same as a non-unique one.
 //
 // See solver.js for the solution search and validators.js for the shared
 // rule predicates (adjacency, row/col/region uniqueness) used at play time.
 
 import { createRng } from "./rng.js";
-import { findSolutions } from "./solver.js";
+import { findSolutions, solveByPropagation } from "./solver.js";
 
 const MAX_OUTER_ATTEMPTS = 150;
 const MAX_REPAIR_STEPS = 100;
@@ -318,6 +326,12 @@ export function generatePuzzle({ size = 8, seed } = {}) {
     const regions = growRegions(size, solution, rng);
 
     if (!repairToUnique(size, regions, rng)) continue;
+
+    // Uniqueness alone doesn't guarantee the puzzle is solvable without
+    // guessing — a board can have exactly one valid answer while still
+    // having no single forced next move at some point along the way.
+    // Reject anything that isn't fully solvable through forced deduction.
+    if (!solveByPropagation({ size, regions }).solved) continue;
 
     const [finalSolution] = findSolutions({ size, regions }, 1);
     return { size, seed: rng.seed, regions, solution: finalSolution };
