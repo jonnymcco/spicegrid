@@ -13,6 +13,7 @@ export default function Cell({
   isHinted,
   borderStyle,
   onClick,
+  onPointerDown,
 }) {
   const label =
     state === CELL_CHILLI
@@ -25,6 +26,9 @@ export default function Cell({
     <button
       type="button"
       onClick={onClick}
+      onPointerDown={onPointerDown}
+      data-row={row}
+      data-col={col}
       aria-label={label}
       style={{
         backgroundColor: regionColor,

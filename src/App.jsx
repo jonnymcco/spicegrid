@@ -139,6 +139,26 @@ export default function App() {
     }
   };
 
+  const handleDragMarkCell = (row, col) => {
+    if (solved) return;
+
+    // Functional update, not a closure read of `cellStates`: pointermove
+    // fires one drag-marked cell at a time in quick succession, and this
+    // needs to build on the truly latest state each time rather than risk
+    // several calls reading the same stale snapshot before React commits
+    // the first one.
+    setCellStates((prev) => {
+      if (prev[row][col] !== CELL_EMPTY) return prev; // never overwrite a chilli, and marking an already-X cell is a no-op
+      return prev.map((r, ri) => (ri === row ? r.map((v, ci) => (ci === col ? CELL_X : v)) : r));
+    });
+
+    setHint(null);
+    if (!hasStarted) {
+      setHasStarted(true);
+      setRunning(true);
+    }
+  };
+
   const handleGetHint = () => {
     if (solved) return;
     setHint(getHint(cellStates, puzzle.regions, puzzle.size));
@@ -190,6 +210,7 @@ export default function App() {
           regionNames={regionNames}
           hintedCells={hintedCells}
           onCellClick={handleCellClick}
+          onDragMarkCell={handleDragMarkCell}
         />
 
         <p className="max-w-md text-center text-xs text-riso-ink/60 dark:text-riso-paper/60">

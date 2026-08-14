@@ -47,6 +47,11 @@ export default function HowToPlayModal({ open, onClose }) {
             <span className="font-semibold">chilli</span>, tap once more to clear it.
           </li>
           <li>
+            <strong className="text-riso-purple dark:text-riso-pink">✍️ Swipe to mark a run of cells.</strong> Press and
+            drag across a row, column, or region to mark every cell you cross with an ✕ in one stroke —
+            handy for ruling out a whole line at once. It won't touch cells that already have a chilli.
+          </li>
+          <li>
             <strong className="text-riso-purple dark:text-riso-pink">✅ Self-check.</strong> Placing a chilli highlights
             its row, column, and region. Two chillies that break a rule flash red.
           </li>
