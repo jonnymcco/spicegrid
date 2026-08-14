@@ -43,8 +43,8 @@ const MAX_REPAIR_STEPS = 100;
 const MAX_SOLUTION_ATTEMPTS = 200;
 
 /**
- * Finds one valid chilli placement: a permutation of columns (one per row)
- * such that consecutive rows never place their chillies in
+ * Finds one valid shamrock placement: a permutation of columns (one per row)
+ * such that consecutive rows never place their shamrocks in
  * horizontally-adjacent (or same) columns. Non-consecutive rows can never
  * be adjacent, since adjacency requires |rowDiff| <= 1.
  *
@@ -100,7 +100,7 @@ function inBounds(size, r, c) {
  * boundaries stay irregular.
  *
  * Returns a size x size array of region ids (0..size-1, matching the row
- * index of the seed chilli that grew that region).
+ * index of the seed shamrock that grew that region).
  */
 function growRegions(size, solution, rng) {
   const regionOf = Array.from({ length: size }, () => new Array(size).fill(-1));
@@ -260,7 +260,7 @@ function staysConnectedWithoutCell(size, regionOf, regionId, excludeRow, exclude
  * Otherwise it takes one of those two solutions and looks for a boundary
  * cell it occupies that borders a *different* region also occupied by that
  * same solution — reassigning that one cell to the neighbouring region
- * would give that solution two chillies in the same region, invalidating
+ * would give that solution two shamrocks in the same region, invalidating
  * it, without touching any cell the *other* solution uses. The move is
  * only applied if it keeps the donor region in one connected piece and
  * non-empty. Repeated until unique, stuck (no valid move found), or the
@@ -311,7 +311,7 @@ function repairToUnique(size, regionOf, rng) {
 }
 
 /**
- * Generates a complete Spice Grid puzzle.
+ * Generates a complete Lucky Patch puzzle.
  *
  * @param {object} options
  * @param {number} [options.size=8] - Board dimension N.

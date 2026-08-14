@@ -5,19 +5,19 @@
 // `getHint` runs a handful of real deduction rules, in order from easiest
 // to spot to hardest, and returns the first one that applies:
 //
-//   1. conflict        — a placed chilli rules out other cells in its row,
+//   1. conflict        — a placed shamrock rules out other cells in its row,
 //                         column, region, or touching it, that aren't
 //                         marked yet.
 //   2. region-locked    — a region's remaining candidates all sit in one
-//                         row (or column), which means that row's chilli
+//                         row (or column), which means that row's shamrock
 //                         has to come from this region — ruling out every
 //                         other cell in that row.
 //   3. axis-locked      — the mirror image of #2: a row's (or column's)
 //                         remaining candidates all sit in one region, so
-//                         that region's chilli has to come from this row —
+//                         that region's shamrock has to come from this row —
 //                         ruling out every other cell in that region.
 //   4. naked-single     — a row, column, or region has exactly one
-//                         candidate cell left, so it must hold the chilli.
+//                         candidate cell left, so it must hold the shamrock.
 //   5. subset-locked     — a generalisation of #2: two or three regions
 //                         (unresolved, considered together) have all their
 //                         remaining candidates confined to exactly that
@@ -45,12 +45,12 @@
 // part of normal play.
 //
 // Each rule is checked against the *true* remaining candidate set, which
-// factors in eliminations implied by placed chillies even if the player
+// factors in eliminations implied by placed shamrocks even if the player
 // hasn't manually marked them with an X yet — otherwise a player who
 // skips marking obvious eliminations would get worse hints, not better
 // ones.
 
-import { CELL_CHILLI, CELL_EMPTY, CELL_X } from "./validators.js";
+import { CELL_SHAMROCK, CELL_EMPTY, CELL_X } from "./validators.js";
 import { countConstrainedSolutions } from "./solver.js";
 
 const ALL_NEIGHBORS = [
@@ -96,26 +96,26 @@ function combinations(items, k) {
 }
 
 /**
- * True remaining candidates: not marked X, not itself a placed chilli, and
+ * True remaining candidates: not marked X, not itself a placed shamrock, and
  * not ruled out by sharing a row/column/region with — or touching — a
- * chilli that's already on the board (whether or not the player has
+ * shamrock that's already on the board (whether or not the player has
  * marked those cells).
  */
 export function computeCandidates(cellStates, regions, size) {
   const candidate = Array.from({ length: size }, () => new Array(size).fill(true));
-  const placedChillies = [];
+  const placedShamrocks = [];
 
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
       if (cellStates[r][c] === CELL_X) candidate[r][c] = false;
-      if (cellStates[r][c] === CELL_CHILLI) {
+      if (cellStates[r][c] === CELL_SHAMROCK) {
         candidate[r][c] = false;
-        placedChillies.push([r, c]);
+        placedShamrocks.push([r, c]);
       }
     }
   }
 
-  for (const [pr, pc] of placedChillies) {
+  for (const [pr, pc] of placedShamrocks) {
     const regionId = regions[pr][pc];
     for (let i = 0; i < size; i++) {
       candidate[pr][i] = false;
@@ -136,28 +136,28 @@ export function computeCandidates(cellStates, regions, size) {
   return candidate;
 }
 
-function rowHasChilli(cellStates, row, size) {
-  for (let c = 0; c < size; c++) if (cellStates[row][c] === CELL_CHILLI) return true;
+function rowHasShamrock(cellStates, row, size) {
+  for (let c = 0; c < size; c++) if (cellStates[row][c] === CELL_SHAMROCK) return true;
   return false;
 }
-function colHasChilli(cellStates, col, size) {
-  for (let r = 0; r < size; r++) if (cellStates[r][col] === CELL_CHILLI) return true;
+function colHasShamrock(cellStates, col, size) {
+  for (let r = 0; r < size; r++) if (cellStates[r][col] === CELL_SHAMROCK) return true;
   return false;
 }
-function regionHasChilli(cellStates, regions, regionId, size) {
+function regionHasShamrock(cellStates, regions, regionId, size) {
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
-      if (regions[r][c] === regionId && cellStates[r][c] === CELL_CHILLI) return true;
+      if (regions[r][c] === regionId && cellStates[r][c] === CELL_SHAMROCK) return true;
     }
   }
   return false;
 }
 
-/** Rule 1: cells an existing chilli already rules out, but that aren't marked X yet. */
+/** Rule 1: cells an existing shamrock already rules out, but that aren't marked X yet. */
 function findConflictHint(cellStates, regions, size) {
   for (let pr = 0; pr < size; pr++) {
     for (let pc = 0; pc < size; pc++) {
-      if (cellStates[pr][pc] !== CELL_CHILLI) continue;
+      if (cellStates[pr][pc] !== CELL_SHAMROCK) continue;
       const regionId = regions[pr][pc];
       const cells = [];
       const seen = new Set();
@@ -204,7 +204,7 @@ function findConflictHint(cellStates, regions, size) {
 function findRegionSubsetHint(cellStates, regions, size, candidates, axis) {
   const unresolvedRegions = [];
   for (let regionId = 0; regionId < size; regionId++) {
-    if (!regionHasChilli(cellStates, regions, regionId, size)) unresolvedRegions.push(regionId);
+    if (!regionHasShamrock(cellStates, regions, regionId, size)) unresolvedRegions.push(regionId);
   }
 
   const axisCandidatesByRegion = new Map();
@@ -265,12 +265,12 @@ function findRegionSubsetHint(cellStates, regions, size, candidates, axis) {
 
 /**
  * Rule 3 (the mirror image of rule 2): a row's (or column's) remaining
- * candidates are all inside one region, so that region's chilli has to be
+ * candidates are all inside one region, so that region's shamrock has to be
  * in this row — ruling out every other cell in the region.
  */
 function findAxisLockedHint(cellStates, regions, size, candidates) {
   for (let row = 0; row < size; row++) {
-    if (rowHasChilli(cellStates, row, size)) continue;
+    if (rowHasShamrock(cellStates, row, size)) continue;
     const rowCells = [];
     for (let c = 0; c < size; c++) if (candidates[row][c]) rowCells.push([row, c]);
     if (rowCells.length === 0) continue;
@@ -291,7 +291,7 @@ function findAxisLockedHint(cellStates, regions, size, candidates) {
   }
 
   for (let col = 0; col < size; col++) {
-    if (colHasChilli(cellStates, col, size)) continue;
+    if (colHasShamrock(cellStates, col, size)) continue;
     const colCells = [];
     for (let r = 0; r < size; r++) if (candidates[r][col]) colCells.push([r, col]);
     if (colCells.length === 0) continue;
@@ -317,7 +317,7 @@ function findAxisLockedHint(cellStates, regions, size, candidates) {
 /** Rule 4: a region, row, or column has exactly one candidate cell left. */
 function findNakedSingleHint(cellStates, regions, size, candidates) {
   for (let regionId = 0; regionId < size; regionId++) {
-    if (regionHasChilli(cellStates, regions, regionId, size)) continue;
+    if (regionHasShamrock(cellStates, regions, regionId, size)) continue;
     const cells = [];
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
@@ -330,7 +330,7 @@ function findNakedSingleHint(cellStates, regions, size, candidates) {
   }
 
   for (let row = 0; row < size; row++) {
-    if (rowHasChilli(cellStates, row, size)) continue;
+    if (rowHasShamrock(cellStates, row, size)) continue;
     const cells = [];
     for (let c = 0; c < size; c++) if (candidates[row][c]) cells.push([row, c]);
     if (cells.length === 1) {
@@ -339,7 +339,7 @@ function findNakedSingleHint(cellStates, regions, size, candidates) {
   }
 
   for (let col = 0; col < size; col++) {
-    if (colHasChilli(cellStates, col, size)) continue;
+    if (colHasShamrock(cellStates, col, size)) continue;
     const cells = [];
     for (let r = 0; r < size; r++) if (candidates[r][col]) cells.push([r, col]);
     if (cells.length === 1) {
@@ -357,7 +357,7 @@ function buildConstraints(cellStates, size) {
 
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
-      if (cellStates[r][c] === CELL_CHILLI) forcedCol[r] = c;
+      if (cellStates[r][c] === CELL_SHAMROCK) forcedCol[r] = c;
       if (cellStates[r][c] === CELL_X) excluded.add(key(r, c));
     }
   }
@@ -388,10 +388,10 @@ function findForcedHint(cellStates, regions, size) {
         return { type: "place", reason: "forced", cells: [[row, col]] };
       }
 
-      const assumeChilli = forcedCol.slice();
-      assumeChilli[row] = col;
-      const waysIfChilli = countConstrainedSolutions({ size, regions }, assumeChilli, excluded, 1);
-      if (waysIfChilli === 0) {
+      const assumeShamrock = forcedCol.slice();
+      assumeShamrock[row] = col;
+      const waysIfShamrock = countConstrainedSolutions({ size, regions }, assumeShamrock, excluded, 1);
+      if (waysIfShamrock === 0) {
         return { type: "eliminate", reason: "forced", cells: [[row, col]] };
       }
     }
@@ -452,7 +452,7 @@ export function solveByNamedRules(regions, size) {
       }
     } else {
       const [r, c] = hint.cells[0];
-      cellStates[r][c] = CELL_CHILLI;
+      cellStates[r][c] = CELL_SHAMROCK;
       placed++;
     }
   }
@@ -490,56 +490,56 @@ export function describeHint(hint, regionNames) {
     case "conflict": {
       const [r, c] = hint.sourceCell;
       const plural = hint.cells.length > 1 ? "cells" : "cell";
-      return `The chilli at row ${ORDINAL(r)}, column ${ORDINAL(c)} rules out ${hint.cells.length} more ${plural} — each one shares its row, column, or region with that chilli, or would touch it. Mark them with an ✕.`;
+      return `The shamrock at row ${ORDINAL(r)}, column ${ORDINAL(c)} rules out ${hint.cells.length} more ${plural} — each one shares its row, column, or region with that shamrock, or would touch it. Mark them with an ✕.`;
     }
     case "locked-row":
       return `Every remaining candidate cell in ${regionName(hint.regionId)} is in row ${ORDINAL(
         hint.row
-      )}. That means row ${ORDINAL(hint.row)}'s chilli has to come from ${regionName(
+      )}. That means row ${ORDINAL(hint.row)}'s shamrock has to come from ${regionName(
         hint.regionId
       )} — so every other cell in that row can be ruled out.`;
     case "locked-column":
       return `Every remaining candidate cell in ${regionName(hint.regionId)} is in column ${ORDINAL(
         hint.col
-      )}. That means column ${ORDINAL(hint.col)}'s chilli has to come from ${regionName(
+      )}. That means column ${ORDINAL(hint.col)}'s shamrock has to come from ${regionName(
         hint.regionId
       )} — so every other cell in that column can be ruled out.`;
     case "row-locked":
       return `Row ${ORDINAL(hint.row)}'s only remaining candidates are all in ${regionName(
         hint.regionId
-      )}. That means ${regionName(hint.regionId)}'s chilli has to be in row ${ORDINAL(
+      )}. That means ${regionName(hint.regionId)}'s shamrock has to be in row ${ORDINAL(
         hint.row
       )} — so every other cell in that colour can be ruled out.`;
     case "column-locked":
       return `Column ${ORDINAL(hint.col)}'s only remaining candidates are all in ${regionName(
         hint.regionId
-      )}. That means ${regionName(hint.regionId)}'s chilli has to be in column ${ORDINAL(
+      )}. That means ${regionName(hint.regionId)}'s shamrock has to be in column ${ORDINAL(
         hint.col
       )} — so every other cell in that colour can be ruled out.`;
     case "subset-row": {
       const names = listRegionNames(hint.regionIds, regionName);
       const rows = listOrdinals(hint.rows);
-      return `${names} — that's ${hint.regionIds.length} colours — only have room left in rows ${rows}, ${hint.regionIds.length} rows total. Between them they'll fill every chilli those rows get, so no other colour can use rows ${rows} either.`;
+      return `${names} — that's ${hint.regionIds.length} colours — only have room left in rows ${rows}, ${hint.regionIds.length} rows total. Between them they'll fill every shamrock those rows get, so no other colour can use rows ${rows} either.`;
     }
     case "subset-column": {
       const names = listRegionNames(hint.regionIds, regionName);
       const cols = listOrdinals(hint.cols);
-      return `${names} — that's ${hint.regionIds.length} colours — only have room left in columns ${cols}, ${hint.regionIds.length} columns total. Between them they'll fill every chilli those columns get, so no other colour can use columns ${cols} either.`;
+      return `${names} — that's ${hint.regionIds.length} colours — only have room left in columns ${cols}, ${hint.regionIds.length} columns total. Between them they'll fill every shamrock those columns get, so no other colour can use columns ${cols} either.`;
     }
     case "naked-single-region":
-      return `${regionName(hint.regionId)} has only one cell left that isn't ruled out — its chilli has to go there.`;
+      return `${regionName(hint.regionId)} has only one cell left that isn't ruled out — its shamrock has to go there.`;
     case "naked-single-row":
-      return `Row ${ORDINAL(hint.row)} has only one cell left that isn't ruled out — its chilli has to go there.`;
+      return `Row ${ORDINAL(hint.row)} has only one cell left that isn't ruled out — its shamrock has to go there.`;
     case "naked-single-column":
-      return `Column ${ORDINAL(hint.col)} has only one cell left that isn't ruled out — its chilli has to go there.`;
+      return `Column ${ORDINAL(hint.col)} has only one cell left that isn't ruled out — its shamrock has to go there.`;
     case "forced": {
       const [r, c] = hint.cells[0];
       if (hint.type === "place") {
-        return `This one takes deeper reasoning: try assuming row ${ORDINAL(r)}'s chilli is anywhere except column ${ORDINAL(
+        return `This one takes deeper reasoning: try assuming row ${ORDINAL(r)}'s shamrock is anywhere except column ${ORDINAL(
           c
         )} — every one of those leaves no valid way to finish the rest of the board. So it has to go there.`;
       }
-      return `This one takes deeper reasoning: assuming a chilli at row ${ORDINAL(r)}, column ${ORDINAL(
+      return `This one takes deeper reasoning: assuming a shamrock at row ${ORDINAL(r)}, column ${ORDINAL(
         c
       )} leaves no valid way to finish the rest of the board — so it can be ruled out.`;
     }

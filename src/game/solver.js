@@ -1,16 +1,16 @@
-// Generic constraint solver for a Spice Grid board layout (size + region
+// Generic constraint solver for a Lucky Patch board layout (size + region
 // map). Used both to verify a freshly generated puzzle has exactly one
 // solution, and as a building block for future hint features.
 //
 // Framework-agnostic: pure functions over plain data, no React/DOM.
 
 /**
- * Counts valid chilli placements for a board (one per row, one per column,
+ * Counts valid shamrock placements for a board (one per row, one per column,
  * one per region, no two touching including diagonally), stopping early
  * once `limit` solutions have been found.
  *
- * Because a valid placement has exactly one chilli per row, two placed
- * chillies can only ever be adjacent if their rows differ by exactly 1 —
+ * Because a valid placement has exactly one shamrock per row, two placed
+ * shamrocks can only ever be adjacent if their rows differ by exactly 1 —
  * non-adjacent rows are always more than one row apart. That lets the
  * search check adjacency against only the immediately preceding row.
  *
@@ -126,7 +126,7 @@ export function findSolutions({ size, regions }, limit = 2) {
  * @param {{size: number, regions: number[][]}} board
  * @param {number[]} forcedCol - length `size`; forcedCol[row] is a pinned
  *   column, or -1 if that row isn't pinned yet.
- * @param {Set<string>} excluded - "row,col" keys that may never hold the chilli.
+ * @param {Set<string>} excluded - "row,col" keys that may never hold the shamrock.
  * @param {number} [limit=1]
  * @returns {number} Number of consistent solutions found (capped at `limit`).
  */
@@ -227,8 +227,8 @@ export function solveByPropagation({ size, regions }) {
       for (let col = 0; col < size; col++) {
         if (excluded.has(`${row},${col}`)) continue;
 
-        // Assume this cell is NOT the chilli for its row — if that leaves
-        // no valid completion at all, it must actually be the chilli.
+        // Assume this cell is NOT the shamrock for its row — if that leaves
+        // no valid completion at all, it must actually be the shamrock.
         const excludedPlusThis = new Set(excluded);
         excludedPlusThis.add(`${row},${col}`);
         const countWithoutIt = countConstrainedSolutions({ size, regions }, forcedCol, excludedPlusThis, 1);
@@ -240,7 +240,7 @@ export function solveByPropagation({ size, regions }) {
           break;
         }
 
-        // Assume this cell IS the chilli — if that leaves no valid
+        // Assume this cell IS the shamrock — if that leaves no valid
         // completion, it must actually be impossible.
         const forcedPlusThis = forcedCol.slice();
         forcedPlusThis[row] = col;

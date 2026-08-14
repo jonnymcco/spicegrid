@@ -1,4 +1,4 @@
-import ChilliIcon from "./ChilliIcon.jsx";
+import ShamrockIcon from "./ShamrockIcon.jsx";
 
 function IconButton({ onClick, label, children, active }) {
   return (
@@ -34,9 +34,9 @@ export default function Header({
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6">
         <div className="flex items-center justify-between gap-3">
           <div className="riso-offset-title flex items-center gap-2">
-            <ChilliIcon className="h-8 w-8 text-riso-pink drop-shadow-[2px_2px_0_rgba(0,0,0,0.35)] sm:h-9 sm:w-9" title="" />
+            <ShamrockIcon className="h-8 w-8 text-riso-pink drop-shadow-[2px_2px_0_rgba(0,0,0,0.35)] sm:h-9 sm:w-9" title="" />
             <h1 className="font-display text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
-              Spice Grid
+              Lucky Patch
             </h1>
           </div>
 

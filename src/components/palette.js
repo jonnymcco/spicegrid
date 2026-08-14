@@ -12,7 +12,7 @@ import { contrastRatio } from "./colorMath.js";
 // `regionColorAssignment.js` actively avoids placing close colours next to
 // each other on the board rather than relying on palette order alone.
 const REGION_COLORS = [
-  { name: "Chilli Red", hex: "#87221D" },
+  { name: "Brick Red", hex: "#87221D" },
   { name: "Habanero Orange", hex: "#E47E25" },
   { name: "Jalapeño Green", hex: "#458235" },
   { name: "Golden Turmeric", hex: "#D1A61A" },
@@ -49,12 +49,12 @@ function hslToHex(h, s, l) {
 /** Extra hues generated on the fly if a board needs more than the curated set. */
 function generateExtraColor(index) {
   const hue = (18 + index * 47) % 360; // walk the wheel, skip pure error-red band
-  return { name: `Spice ${index}`, hex: hslToHex(hue, 55, 42) };
+  return { name: `Patch ${index}`, hex: hslToHex(hue, 55, 42) };
 }
 
 /**
  * Returns `count` region colours (name, hex, and a contrast-safe
- * `iconColor` for the chilli/✕ glyph drawn on top of it).
+ * `iconColor` for the shamrock/✕ glyph drawn on top of it).
  */
 export function getRegionPalette(count) {
   const colors = [];

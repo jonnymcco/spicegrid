@@ -40,7 +40,7 @@ test("solveByPropagation reports unsolved for a genuinely ambiguous board", () =
 
 test("solveByPropagation immediately forces a single-cell region", () => {
   const size = 4;
-  // Region 0 is just (0,0) — its row's chilli is forced from the very
+  // Region 0 is just (0,0) — its row's shamrock is forced from the very
   // first pass, with no other deduction needed first.
   const regions = [
     [0, 1, 1, 1],

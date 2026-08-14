@@ -1,7 +1,7 @@
 export default function HintPanel({ hint, message, onDismiss }) {
   if (!hint) return null;
 
-  const actionLabel = hint.type === "place" ? "Place a chilli" : "Mark with ✕";
+  const actionLabel = hint.type === "place" ? "Place a shamrock" : "Mark with ✕";
 
   return (
     <div

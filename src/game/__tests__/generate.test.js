@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { generatePuzzle } from "../generateGrid.js";
 import { countSolutions } from "../solver.js";
-import { findConflicts, isSolved, createEmptyCellStates, CELL_CHILLI } from "../validators.js";
+import { findConflicts, isSolved, createEmptyCellStates, CELL_SHAMROCK } from "../validators.js";
 
 test("generates a puzzle with exactly one solution, for several sizes", () => {
   for (const size of [4, 5, 6, 8]) {
@@ -42,17 +42,17 @@ test("different seeds usually produce different puzzles", () => {
 test("validators: the generated solution itself is accepted as solved", () => {
   const puzzle = generatePuzzle({ size: 8, seed: "solved-check" });
   const cellStates = createEmptyCellStates(puzzle.size);
-  for (const [r, c] of puzzle.solution) cellStates[r][c] = CELL_CHILLI;
+  for (const [r, c] of puzzle.solution) cellStates[r][c] = CELL_SHAMROCK;
 
   assert.equal(findConflicts(cellStates, puzzle.regions).size, 0);
   assert.equal(isSolved(cellStates, puzzle.regions), true);
 });
 
-test("validators: adjacent chillies are flagged as conflicts", () => {
+test("validators: adjacent shamrocks are flagged as conflicts", () => {
   const puzzle = generatePuzzle({ size: 6, seed: "conflict-check" });
   const cellStates = createEmptyCellStates(puzzle.size);
-  cellStates[0][0] = CELL_CHILLI;
-  cellStates[1][1] = CELL_CHILLI; // diagonally touching (0,0)
+  cellStates[0][0] = CELL_SHAMROCK;
+  cellStates[1][1] = CELL_SHAMROCK; // diagonally touching (0,0)
 
   const conflicts = findConflicts(cellStates, puzzle.regions);
   assert.ok(conflicts.has("0,0"));
@@ -62,8 +62,8 @@ test("validators: adjacent chillies are flagged as conflicts", () => {
 test("validators: sharing a row is flagged as a conflict", () => {
   const puzzle = generatePuzzle({ size: 6, seed: "row-conflict" });
   const cellStates = createEmptyCellStates(puzzle.size);
-  cellStates[3][0] = CELL_CHILLI;
-  cellStates[3][5] = CELL_CHILLI;
+  cellStates[3][0] = CELL_SHAMROCK;
+  cellStates[3][5] = CELL_SHAMROCK;
 
   const conflicts = findConflicts(cellStates, puzzle.regions);
   assert.ok(conflicts.has("3,0"));

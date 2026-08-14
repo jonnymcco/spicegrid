@@ -15,7 +15,7 @@ export default {
           paper: "#FFF6EC",
           "paper-dark": "#241629",
         },
-        chilli: {
+        signal: {
           error: "#E5233D",
         },
       },

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { getHint, computeCandidates, describeHint, solveByNamedRules } from "../hints.js";
-import { createEmptyCellStates, CELL_CHILLI, CELL_EMPTY, CELL_X, isSolved } from "../validators.js";
+import { createEmptyCellStates, CELL_SHAMROCK, CELL_EMPTY, CELL_X, isSolved } from "../validators.js";
 import { generatePuzzle } from "../generateGrid.js";
 
 // Four 2x2 quadrant regions on a 4x4 board — enough structure to exercise
@@ -17,10 +17,10 @@ function cellsToSet(cells) {
   return new Set(cells.map(([r, c]) => `${r},${c}`));
 }
 
-test("computeCandidates rules out cells sharing a row/col/region or touching a placed chilli", () => {
+test("computeCandidates rules out cells sharing a row/col/region or touching a placed shamrock", () => {
   const size = 4;
   const cellStates = createEmptyCellStates(size);
-  cellStates[0][0] = CELL_CHILLI;
+  cellStates[0][0] = CELL_SHAMROCK;
 
   const candidates = computeCandidates(cellStates, QUADRANT_REGIONS, size);
 
@@ -37,10 +37,10 @@ test("computeCandidates rules out cells sharing a row/col/region or touching a p
   assert.equal(candidates[3][3], true);
 });
 
-test("conflict rule: a placed chilli produces an eliminate hint for its row/col/region/adjacent cells", () => {
+test("conflict rule: a placed shamrock produces an eliminate hint for its row/col/region/adjacent cells", () => {
   const size = 4;
   const cellStates = createEmptyCellStates(size);
-  cellStates[0][0] = CELL_CHILLI;
+  cellStates[0][0] = CELL_SHAMROCK;
 
   const hint = getHint(cellStates, QUADRANT_REGIONS, size);
 
@@ -112,12 +112,12 @@ test("locked-candidate rule: a region confined to one column rules out the rest 
     ])
   );
 
-  const message = describeHint(hint, ["Chilli Red", "Habanero Orange", "Jalapeño Green", "Golden Turmeric"]);
+  const message = describeHint(hint, ["Brick Red", "Habanero Orange", "Jalapeño Green", "Golden Turmeric"]);
   assert.doesNotMatch(message, /NaN/);
   assert.match(message, /column 3/i);
 });
 
-test("naked-single rule: a region down to one candidate must take its chilli there", () => {
+test("naked-single rule: a region down to one candidate must take its shamrock there", () => {
   const size = 4;
   const cellStates = createEmptyCellStates(size);
   // Region 0 (top-left) loses its row-0 cells, leaving (1,0)/(1,1) in row 1.
@@ -146,7 +146,7 @@ test("naked-single rule: a region down to one candidate must take its chilli the
 test("axis-locked rule: a row confined to a single region rules out that region elsewhere", () => {
   // Found directly from a real (pre-repair) region layout, on a fresh
   // empty board: row 0's only remaining candidates are all region 0, so
-  // region 0's chilli must be in row 0 — ruling out (1,1), its only other
+  // region 0's shamrock must be in row 0 — ruling out (1,1), its only other
   // still-open cell.
   const size = 5;
   const regions = [
@@ -213,7 +213,7 @@ test("subset rule: two regions collectively confined to two columns rule out eve
   assert.deepEqual(hint.cols, [1, 2]);
   assert.deepEqual(hint.cells, [[3, 2]]);
 
-  const message = describeHint(hint, ["Chilli Red", "Habanero Orange", "Jalapeño Green", "Golden Turmeric", "Cocoa"]);
+  const message = describeHint(hint, ["Brick Red", "Habanero Orange", "Jalapeño Green", "Golden Turmeric", "Cocoa"]);
   assert.doesNotMatch(message, /NaN/);
 });
 
@@ -262,7 +262,7 @@ test("never fabricates a full solve on a genuinely ambiguous board", () => {
       }
     } else {
       const [r, c] = hint.cells[0];
-      cellStates[r][c] = CELL_CHILLI;
+      cellStates[r][c] = CELL_SHAMROCK;
     }
     steps++;
   }
@@ -299,7 +299,7 @@ test("forced rule: finds a deduction beyond the named patterns, with no solution
 
 test("describeHint produces a non-empty, rule-appropriate sentence for every reason", () => {
   const size = 4;
-  const regionNames = ["Chilli Red", "Habanero Orange", "Jalapeño Green", "Golden Turmeric"];
+  const regionNames = ["Brick Red", "Habanero Orange", "Jalapeño Green", "Golden Turmeric"];
 
   const conflictHint = { type: "eliminate", reason: "conflict", cells: [[0, 1]], sourceCell: [0, 0] };
   assert.match(describeHint(conflictHint, regionNames), /rules out/i);

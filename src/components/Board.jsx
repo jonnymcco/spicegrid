@@ -1,7 +1,7 @@
 import { useMemo, useRef } from "react";
 import Cell from "./Cell.jsx";
 import { getHighlightedCells } from "../game/validators.js";
-import { CELL_CHILLI } from "../game/validators.js";
+import { CELL_SHAMROCK } from "../game/validators.js";
 
 const REGION_BORDER = "#1B1023";
 const GRID_LINE = "rgba(27, 16, 35, 0.12)";
@@ -60,7 +60,7 @@ export default function Board({
     const union = new Set();
     for (let r = 0; r < size; r++) {
       for (let c = 0; c < size; c++) {
-        if (cellStates[r][c] === CELL_CHILLI) {
+        if (cellStates[r][c] === CELL_SHAMROCK) {
           for (const k of getHighlightedCells(r, c, regions)) union.add(k);
         }
       }
@@ -69,10 +69,10 @@ export default function Board({
   }, [cellStates, regions, size]);
 
   // A stationary tap still falls through to each Cell's own onClick (which
-  // cycles empty -> X -> chilli -> empty) — untouched by any of this.
+  // cycles empty -> X -> shamrock -> empty) — untouched by any of this.
   // Once the pointer moves into a *different* cell before lifting, that
   // becomes a drag: every new cell the gesture passes over gets marked X
-  // (chillies are left alone, and already-X cells are a no-op), the same
+  // (shamrocks are left alone, and already-X cells are a no-op), the same
   // way a highlighter stroke works. Dragging back onto the start cell and
   // releasing there would otherwise also fire a native click on it (click
   // only cares whether pointerdown/pointerup targeted the same element,
@@ -139,7 +139,7 @@ export default function Board({
       className="mx-auto grid w-full max-w-[min(92vw,34rem)] touch-none select-none overflow-hidden rounded-xl border-[3px] border-riso-ink shadow-riso bg-riso-ink"
       style={{ gridTemplateColumns: `repeat(${size}, 1fr)` }}
       role="grid"
-      aria-label="Spice Grid puzzle board"
+      aria-label="Lucky Patch puzzle board"
       onPointerMove={handlePointerMove}
       onPointerUp={endDrag}
       onPointerCancel={endDrag}

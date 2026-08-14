@@ -1,9 +1,9 @@
 {
-  "name": "spice-grid",
+  "name": "lucky-patch",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Spice Grid — a chilli-themed logic puzzle in the spirit of LinkedIn's Queens.",
+  "description": "Lucky Patch — a shamrock-themed logic puzzle in the spirit of LinkedIn's Queens.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

@@ -2,38 +2,38 @@
 // win-condition check. Framework-agnostic: operates on plain arrays.
 //
 // A "cell state" grid is a size x size array where each entry is one of:
-//   "empty" | "x" | "chilli"
+//   "empty" | "x" | "shamrock"
 // ("x" is the player's own scratch mark and never participates in rules.)
 
 export const CELL_EMPTY = "empty";
 export const CELL_X = "x";
-export const CELL_CHILLI = "chilli";
+export const CELL_SHAMROCK = "shamrock";
 
 function key(r, c) {
   return `${r},${c}`;
 }
 
-function getChilliPositions(cellStates) {
+function getShamrockPositions(cellStates) {
   const positions = [];
   for (let r = 0; r < cellStates.length; r++) {
     for (let c = 0; c < cellStates[r].length; c++) {
-      if (cellStates[r][c] === CELL_CHILLI) positions.push([r, c]);
+      if (cellStates[r][c] === CELL_SHAMROCK) positions.push([r, c]);
     }
   }
   return positions;
 }
 
 /**
- * Finds every rule violation among currently-placed chillies:
- * two chillies touching (including diagonally), or two chillies sharing a
+ * Finds every rule violation among currently-placed shamrocks:
+ * two shamrocks touching (including diagonally), or two shamrocks sharing a
  * row, column, or region.
  *
- * @returns {Set<string>} "row,col" keys of every chilli involved in a
+ * @returns {Set<string>} "row,col" keys of every shamrock involved in a
  *   violation, for red-flash highlighting.
  */
 export function findConflicts(cellStates, regions) {
   const conflicts = new Set();
-  const positions = getChilliPositions(cellStates);
+  const positions = getShamrockPositions(cellStates);
 
   for (let i = 0; i < positions.length; i++) {
     for (let j = i + 1; j < positions.length; j++) {
@@ -57,7 +57,7 @@ export function findConflicts(cellStates, regions) {
 
 /**
  * Returns the set of "row,col" keys sharing a row, column, or region with
- * the given cell (used to highlight a placed chilli's row/col/region for
+ * the given cell (used to highlight a placed shamrock's row/col/region for
  * self-checking). Does not include adjacency/touching cells.
  */
 export function getHighlightedCells(row, col, regions) {
@@ -80,11 +80,11 @@ export function getHighlightedCells(row, col, regions) {
 
 /**
  * Checks whether the current board state is a complete, valid solution:
- * exactly N chillies placed, one per row/column/region, none touching.
+ * exactly N shamrocks placed, one per row/column/region, none touching.
  */
 export function isSolved(cellStates, regions) {
   const size = cellStates.length;
-  const positions = getChilliPositions(cellStates);
+  const positions = getShamrockPositions(cellStates);
   if (positions.length !== size) return false;
   if (findConflicts(cellStates, regions).size > 0) return false;
 

@@ -1,5 +1,5 @@
 import { formatTime } from "./Timer.jsx";
-import ChilliIcon from "./ChilliIcon.jsx";
+import ShamrockIcon from "./ShamrockIcon.jsx";
 
 const CONFETTI_COLORS = ["#FF3EA5", "#6F2DBD", "#F2A541", "#8FAF3D", "#E8791A"];
 
@@ -36,11 +36,11 @@ export default function WinModal({ open, seconds, mistakeCount, mistakesEnabled,
         <Confetti />
 
         <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full border-2 border-riso-ink bg-riso-pink shadow-riso-sm">
-          <ChilliIcon className="h-9 w-9 text-white" title="" />
+          <ShamrockIcon className="h-9 w-9 text-white" title="" />
         </div>
 
         <h2 id="win-title" className="font-display text-2xl font-extrabold text-riso-purple dark:text-riso-pink">
-          Solved it! 🌶️
+          Solved it! ☘️
         </h2>
         <p className="mt-1 font-display text-lg font-semibold text-riso-ink dark:text-riso-paper">
           Solved in {formatTime(seconds)}

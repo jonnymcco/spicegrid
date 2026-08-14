@@ -1,5 +1,5 @@
-import ChilliIcon from "./ChilliIcon.jsx";
-import { CELL_CHILLI, CELL_X } from "../game/validators.js";
+import ShamrockIcon from "./ShamrockIcon.jsx";
+import { CELL_SHAMROCK, CELL_X } from "../game/validators.js";
 
 export default function Cell({
   row,
@@ -16,8 +16,8 @@ export default function Cell({
   onPointerDown,
 }) {
   const label =
-    state === CELL_CHILLI
-      ? `Row ${row + 1}, column ${col + 1}, ${regionName} region, chilli placed`
+    state === CELL_SHAMROCK
+      ? `Row ${row + 1}, column ${col + 1}, ${regionName} region, shamrock placed`
       : state === CELL_X
       ? `Row ${row + 1}, column ${col + 1}, ${regionName} region, marked with X`
       : `Row ${row + 1}, column ${col + 1}, ${regionName} region, empty`;
@@ -57,8 +57,8 @@ export default function Cell({
         </span>
       )}
 
-      {state === CELL_CHILLI && (
-        <ChilliIcon
+      {state === CELL_SHAMROCK && (
+        <ShamrockIcon
           className={["h-[62%] w-[62%] drop-shadow-[1px_2px_0_rgba(0,0,0,0.25)]", "animate-pop"].join(" ")}
           style={{ color: isConflict ? "#1B1023" : regionIconColor }}
         />

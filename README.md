@@ -1,7 +1,7 @@
-# Spice Grid 🌶️
+# Lucky Patch ☘️
 
-A chilli-themed daily logic puzzle in the spirit of LinkedIn's *Queens*. Place one chilli in every row,
-column, and coloured region — no two chillies may touch, not even diagonally.
+A shamrock-themed daily logic puzzle in the spirit of LinkedIn's *Queens*. Place one shamrock in every row,
+column, and coloured region — no two shamrocks may touch, not even diagonally.
 
 Riso-print branding: electric pink + funky purple, halftone textures, offset-print title.
 
@@ -28,8 +28,8 @@ npm test           # run the game-logic test suite (node:test, no browser needed
 All of this lives in `src/game/` and has zero React/DOM dependencies, so it's portable and independently
 testable.
 
-1. **`generateGrid.js` → `generateSolution`**: finds a valid chilli placement — one per row and column —
-   such that no two placed chillies touch. Because every row has exactly one chilli, two placed chillies
+1. **`generateGrid.js` → `generateSolution`**: finds a valid shamrock placement — one per row and column —
+   such that no two placed shamrocks touch. Because every row has exactly one shamrock, two placed shamrocks
    can only ever be adjacent if their rows are next to each other, so the search just needs to keep
    consecutive rows' columns more than one apart. Randomised backtracking means different seeds produce
    different solutions.
@@ -41,7 +41,7 @@ testable.
    their jigsaw-piece look instead of straight rows/blocks.
 
 3. **`solver.js`**: a constraint solver (`findSolutions`) that backtracks over the board the same way a
-   player would — one chilli per row, column, and region, no touching — and can return more than one found
+   player would — one shamrock per row, column, and region, no touching — and can return more than one found
    solution if they exist.
 
 4. **`generateGrid.js` → `repairToUnique`**: a random region partition is *rarely* uniquely solvable on the
@@ -83,7 +83,7 @@ each colour to CIE Lab and `components/regionColorAssignment.js` uses that to ac
 gets which palette colour: it builds the on-screen adjacency graph between regions (including diagonal
 neighbours, since corner-touching regions read as "next to each other" too) and greedily assigns colours so
 that touching regions end up as perceptually distant as the palette allows. `palette.js` also picks a
-contrast-safe icon colour (white or dark ink) per region so the chilli/✕ glyph stays legible on both bright
+contrast-safe icon colour (white or dark ink) per region so the shamrock/✕ glyph stays legible on both bright
 and dark backgrounds.
 
 ### Hints
@@ -93,13 +93,13 @@ human player can actually verify by looking at a small, fixed set of cells and c
 and check the whole rest of the board"), in order from easiest to spot to hardest, and stops at the first
 one that applies:
 
-1. **Conflict** — a placed chilli rules out the rest of its row/column/region and the cells touching it.
+1. **Conflict** — a placed shamrock rules out the rest of its row/column/region and the cells touching it.
 2. **Region-locked** — a region's remaining candidates all sit in one row (or column), so that row's/column's
-   chilli has to come from this region, ruling out everything else in it.
+   shamrock has to come from this region, ruling out everything else in it.
 3. **Axis-locked** — the mirror image of #2: a row's (or column's) remaining candidates all sit in one
-   region, so that region's chilli has to be in this row, ruling out everything else in the region.
+   region, so that region's shamrock has to be in this row, ruling out everything else in the region.
 4. **Naked single** — a row, column, or region is down to exactly one candidate cell, so it must hold the
-   chilli.
+   shamrock.
 5. **Subset-locked** — a generalisation of #2: two or three regions, considered together, have all their
    remaining candidates confined to exactly that many rows (or columns) between them — since each needs a
    different one and there are exactly enough to go around, no *other* region can use any of those either.
@@ -156,7 +156,7 @@ src/
     palette.js                  # region colour palette + contrast-safe icon colour
     colorMath.js                 # Lab conversion / distance, contrast ratio helpers
     regionColorAssignment.js     # assigns palette colours so touching regions stay distinct
-    ChilliIcon.jsx
+    ShamrockIcon.jsx
     Board.jsx / Cell.jsx
     Header.jsx / Timer.jsx
     HowToPlayModal.jsx / WinModal.jsx / HintPanel.jsx

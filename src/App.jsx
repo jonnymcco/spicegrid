@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { generatePuzzle } from "./game/generateGrid.js";
 import {
-  CELL_CHILLI,
+  CELL_SHAMROCK,
   CELL_EMPTY,
   CELL_X,
   createEmptyCellStates,
@@ -20,12 +20,12 @@ import HintPanel from "./components/HintPanel.jsx";
 import Footer from "./components/Footer.jsx";
 
 const BOARD_SIZE = 8;
-const SEEN_TUTORIAL_KEY = "spice-grid:seen-how-to-play";
-const DARK_MODE_KEY = "spice-grid:dark-mode";
+const SEEN_TUTORIAL_KEY = "lucky-patch:seen-how-to-play";
+const DARK_MODE_KEY = "lucky-patch:dark-mode";
 
 function cycleCellState(state) {
   if (state === CELL_EMPTY) return CELL_X;
-  if (state === CELL_X) return CELL_CHILLI;
+  if (state === CELL_X) return CELL_SHAMROCK;
   return CELL_EMPTY;
 }
 
@@ -124,7 +124,7 @@ export default function App() {
     const newState = cycleCellState(cellStates[row][col]);
     const next = cellStates.map((r, ri) => (ri === row ? r.map((v, ci) => (ci === col ? newState : v)) : r));
 
-    if (newState === CELL_CHILLI && mistakesEnabled) {
+    if (newState === CELL_SHAMROCK && mistakesEnabled) {
       const conflictsAfter = findConflicts(next, puzzle.regions);
       if (conflictsAfter.has(`${row},${col}`)) {
         setMistakeCount((m) => m + 1);
@@ -148,7 +148,7 @@ export default function App() {
     // several calls reading the same stale snapshot before React commits
     // the first one.
     setCellStates((prev) => {
-      if (prev[row][col] !== CELL_EMPTY) return prev; // never overwrite a chilli, and marking an already-X cell is a no-op
+      if (prev[row][col] !== CELL_EMPTY) return prev; // never overwrite a shamrock, and marking an already-X cell is a no-op
       return prev.map((r, ri) => (ri === row ? r.map((v, ci) => (ci === col ? CELL_X : v)) : r));
     });
 
@@ -214,7 +214,7 @@ export default function App() {
         />
 
         <p className="max-w-md text-center text-xs text-riso-ink/60 dark:text-riso-paper/60">
-          One chilli per row, column &amp; colour. Nothing touches — not even diagonally.
+          One shamrock per row, column &amp; colour. Nothing touches — not even diagonally.
         </p>
       </main>
 
