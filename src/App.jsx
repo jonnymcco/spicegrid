@@ -10,13 +10,14 @@ import {
 } from "./game/validators.js";
 import { getRegionPalette } from "./components/palette.js";
 import { assignRegionColors } from "./components/regionColorAssignment.js";
-import { getHint, describeHint } from "./game/hints.js";
+import { getHint, describeHint, hasValidCompletion } from "./game/hints.js";
 import Header from "./components/Header.jsx";
 import Board from "./components/Board.jsx";
 import Timer from "./components/Timer.jsx";
 import HowToPlayModal from "./components/HowToPlayModal.jsx";
 import WinModal from "./components/WinModal.jsx";
 import HintPanel from "./components/HintPanel.jsx";
+import DeadEndBanner from "./components/DeadEndBanner.jsx";
 import Footer from "./components/Footer.jsx";
 
 const BOARD_SIZE = 8;
@@ -77,11 +78,28 @@ export default function App() {
   const regionNames = useMemo(() => regionColors.map((c) => c.name), [regionColors]);
   const conflicts = useMemo(() => findConflicts(cellStates, puzzle.regions), [cellStates, puzzle]);
   const solved = useMemo(() => isSolved(cellStates, puzzle.regions), [cellStates, puzzle]);
+  // A hint that says "this cell of yours is wrong" needs a different look
+  // from one saying "act on this cell" — otherwise the player reads the
+  // highlight as an instruction and doubles down on the bad move.
+  const hintFlagsMistake = hint?.reason === "wrong-placement" || hint?.reason === "wrong-mark";
   const hintedCells = useMemo(() => {
-    if (!hint) return undefined;
+    if (!hint || hintFlagsMistake) return undefined;
     return new Set(hint.cells.map(([r, c]) => `${r},${c}`));
-  }, [hint]);
+  }, [hint, hintFlagsMistake]);
+  const blamedCells = useMemo(() => {
+    if (!hint || !hintFlagsMistake) return undefined;
+    return new Set(hint.cells.map(([r, c]) => `${r},${c}`));
+  }, [hint, hintFlagsMistake]);
   const hintMessage = useMemo(() => (hint ? describeHint(hint, regionNames) : ""), [hint, regionNames]);
+
+  // Placing a shamrock that breaks no rule can still make the puzzle
+  // impossible to finish. That used to pass completely unnoticed — the
+  // mistake counter only ever caught immediate rule violations — so a
+  // player could keep working a dead board for minutes. Check it directly.
+  const deadEnd = useMemo(
+    () => !solved && !hasValidCompletion(cellStates, puzzle.regions, puzzle.size),
+    [cellStates, puzzle, solved]
+  );
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDark);
@@ -200,6 +218,8 @@ export default function App() {
           )}
         </div>
 
+        <DeadEndBanner open={deadEnd && !hintFlagsMistake} onHint={handleGetHint} />
+
         <HintPanel hint={hint} message={hintMessage} onDismiss={() => setHint(null)} />
 
         <Board
@@ -209,6 +229,7 @@ export default function App() {
           regionColors={regionColors}
           regionNames={regionNames}
           hintedCells={hintedCells}
+          blamedCells={blamedCells}
           onCellClick={handleCellClick}
           onDragMarkCell={handleDragMarkCell}
         />

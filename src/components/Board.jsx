@@ -40,6 +40,7 @@ export default function Board({
   regionColors,
   regionNames,
   hintedCells = EMPTY_SET,
+  blamedCells = EMPTY_SET,
   onCellClick,
   onDragMarkCell,
 }) {
@@ -159,6 +160,7 @@ export default function Board({
               isHighlighted={highlighted.has(key)}
               isConflict={conflicts.has(key)}
               isHinted={hintedCells.has(key)}
+              isBlamed={blamedCells.has(key)}
               borderStyle={computeBorderStyle(regions, row, col, size)}
               onClick={() => handleCellClick(row, col)}
               onPointerDown={(event) => handlePointerDown(row, col, event)}

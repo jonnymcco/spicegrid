@@ -11,6 +11,7 @@ export default function Cell({
   isHighlighted,
   isConflict,
   isHinted,
+  isBlamed,
   borderStyle,
   onClick,
   onPointerDown,
@@ -46,6 +47,11 @@ export default function Cell({
       {isConflict && <span className="pointer-events-none absolute inset-0 animate-flash-error" />}
       {isHinted && (
         <span className="pointer-events-none absolute inset-0 animate-pulse ring-[3px] ring-inset ring-amber-400" />
+      )}
+      {/* Deliberately a different colour from the amber "do this" hint ring:
+          this one means "this move of yours is the problem". */}
+      {isBlamed && (
+        <span className="pointer-events-none absolute inset-0 animate-pulse ring-[3px] ring-inset ring-rose-500" />
       )}
 
       {state === CELL_X && (

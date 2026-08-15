@@ -113,6 +113,37 @@ one that applies:
 `describeHint` turns whichever rule fired into a plain-English explanation; the UI highlights the affected
 cell(s) rather than applying the hint automatically, so the player still makes the move themselves.
 
+### Hints only trust placements, never ✕ marks
+
+A wrong hint is worse than no hint — it walks the player into a dead end while sounding authoritative. So
+`getHint` takes only the player's *placed shamrocks* as given and re-derives everything else itself. It
+specifically does **not** treat ✕ marks as fact: a ✕ is a scratch note, the player can still place on top of
+one, and with swipe-to-mark it's very easy to ✕ a cell that actually needs a shamrock. Before reasoning at
+all, it checks two things:
+
+- **Are the placements still completable?** If not, the honest answer isn't a deduction — it's "one of these
+  shamrocks is wrong". `findWrongPlacements` pinpoints the culprit by testing which single removal makes the
+  board completable again.
+- **Is a ✕ sitting on a cell that must hold a shamrock?** Reported directly, since every deduction the player
+  makes from that mark will also be wrong. "Must" is verified properly — a cell only counts as required if
+  *ruling it out* leaves no completion, not merely because it appears in one solution among several.
+
+Only then does it derive deductions, replaying the rules internally against a board rebuilt from placements
+alone until it finds something the player hasn't already marked. That last part is what keeps repeated Hint
+presses moving forward instead of restating what's already on the board.
+
+This exists because of a real bug found in play. The engine used to feed ✕ marks straight into its candidate
+set and never checked completability. Measured on 60 puzzles: a legal-but-wrong placement made the board
+unfinishable **60/60 times**, the mistake counter (which only ever caught immediate rule violations) flagged
+**0 of them**, and the hint engine went right on emitting confident advice about a dead board **60/60 times**.
+`src/game/__tests__/hintSoundness.test.js` now pins all of this down, including that no hint ever rules out a
+cell that is genuinely part of the solution.
+
+**Dead ends are surfaced immediately.** `hasValidCompletion` runs on every board change (sub-millisecond at
+these sizes), and `DeadEndBanner` tells the player the moment their placements stop admitting a finish —
+rather than letting them work a doomed board for minutes. Hints that flag a player mistake get a distinct
+rose treatment and ring the offending cell, so a correction never reads as "do this next".
+
 **Why rule 6 exists but (in practice) never fires:** the first version of this generator only checked that a
 puzzle had a unique solution, and separately, a hint engine with just rules 1, 2, and 4 above. Those two
 facts turned out not to compose the way you'd hope — checking mechanically, **only 4 of 100** generated
@@ -150,8 +181,8 @@ src/
     generateGrid.js       # solution + region generation, uniqueness repair
     solver.js             # constraint solver (count / find solutions)
     validators.js         # adjacency, row/col/region conflict checks, win check
-    hints.js               # deduction-rule hint engine
-    __tests__/            # node:test suite for the above
+    hints.js               # deduction-rule hint engine + mistake detection
+    __tests__/            # node:test suite, incl. hintSoundness.test.js
   components/
     palette.js                  # region colour palette + contrast-safe icon colour
     colorMath.js                 # Lab conversion / distance, contrast ratio helpers
@@ -160,6 +191,7 @@ src/
     Board.jsx / Cell.jsx
     Header.jsx / Timer.jsx
     HowToPlayModal.jsx / WinModal.jsx / HintPanel.jsx
+    DeadEndBanner.jsx        # warns when placements admit no finish
     Footer.jsx             # credit line
   App.jsx                  # game state, timer, win detection, hint wiring
   main.jsx

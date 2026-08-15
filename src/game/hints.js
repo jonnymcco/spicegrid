@@ -51,7 +51,7 @@
 // ones.
 
 import { CELL_SHAMROCK, CELL_EMPTY, CELL_X } from "./validators.js";
-import { countConstrainedSolutions } from "./solver.js";
+import { countConstrainedSolutions, findConstrainedSolutions } from "./solver.js";
 
 const ALL_NEIGHBORS = [
   [-1, -1],
@@ -350,19 +350,97 @@ function findNakedSingleHint(cellStates, regions, size, candidates) {
   return null;
 }
 
-/** The current board state, expressed as constraints for `countConstrainedSolutions`. */
-function buildConstraints(cellStates, size) {
-  const forcedCol = new Array(size).fill(-1);
-  const excluded = new Set();
+const NO_EXCLUSIONS = new Set();
 
+/**
+ * The player's *committed* moves — placed shamrocks only — expressed as
+ * constraints for the solver.
+ *
+ * Deliberately ignores ✕ marks. A ✕ is a scratch note, not a commitment:
+ * the player can still place on top of one, and (especially with
+ * swipe-to-mark) it's easy to ✕ a cell that actually needs a shamrock.
+ * Feeding those marks to the solver as facts would make it reason from a
+ * false premise and emit confident nonsense — which is exactly the bug
+ * this replaced. Everything the hint engine concludes is derived from
+ * placements alone, so no amount of bad marking can corrupt a hint.
+ */
+function placementConstraints(cellStates, size) {
+  const forcedCol = new Array(size).fill(-1);
   for (let r = 0; r < size; r++) {
     for (let c = 0; c < size; c++) {
       if (cellStates[r][c] === CELL_SHAMROCK) forcedCol[r] = c;
-      if (cellStates[r][c] === CELL_X) excluded.add(key(r, c));
+    }
+  }
+  return forcedCol;
+}
+
+/** Every [row, col] the player currently has a shamrock on. */
+function placedShamrocks(cellStates, size) {
+  const placed = [];
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (cellStates[r][c] === CELL_SHAMROCK) placed.push([r, c]);
+    }
+  }
+  return placed;
+}
+
+/**
+ * True if the shamrocks already on the board can still be completed into a
+ * full valid solution. ✕ marks are ignored — see `placementConstraints`.
+ */
+export function hasValidCompletion(cellStates, regions, size) {
+  const forcedCol = placementConstraints(cellStates, size);
+  return countConstrainedSolutions({ size, regions }, forcedCol, NO_EXCLUSIONS, 1) > 0;
+}
+
+/**
+ * Given a board with no valid completion, works out which placed
+ * shamrock(s) are to blame: a shamrock is a culprit if removing it (and
+ * nothing else) makes the board completable again. If exactly one comes
+ * back, that's definitively the wrong one. If none do, two or more
+ * placements are jointly wrong and every placement is suspect.
+ */
+function findWrongPlacements(cellStates, regions, size) {
+  const placed = placedShamrocks(cellStates, size);
+  const culprits = [];
+
+  for (const [pr, pc] of placed) {
+    const forcedCol = placementConstraints(cellStates, size);
+    forcedCol[pr] = -1; // pretend this one isn't there
+    if (countConstrainedSolutions({ size, regions }, forcedCol, NO_EXCLUSIONS, 1) > 0) {
+      culprits.push([pr, pc]);
     }
   }
 
-  return { forcedCol, excluded };
+  return culprits.length > 0 ? culprits : placed;
+}
+
+/**
+ * Finds a ✕ the player has put on a cell that provably must hold a
+ * shamrock.
+ *
+ * "Provably" is doing real work here: it isn't enough that the cell shows
+ * up in *some* completion, since on a board with more than one completion
+ * a different one might avoid it — calling that a mistake would be exactly
+ * the kind of confident-but-wrong advice this rewrite exists to kill. A
+ * cell is only required if ruling it out leaves no completion at all, so
+ * that's what gets checked. Any one completion is still a useful shortlist
+ * to test against, because a required cell must appear in every one.
+ */
+function findWrongMark(cellStates, regions, size) {
+  const forcedCol = placementConstraints(cellStates, size);
+  const [completion] = findConstrainedSolutions({ size, regions }, forcedCol, NO_EXCLUSIONS, 1);
+  if (!completion) return null;
+
+  for (const [r, c] of completion) {
+    if (cellStates[r][c] !== CELL_X) continue;
+    const withoutThisCell = new Set([key(r, c)]);
+    if (countConstrainedSolutions({ size, regions }, forcedCol, withoutThisCell, 1) === 0) {
+      return { type: "unmark", reason: "wrong-mark", cells: [[r, c]] };
+    }
+  }
+  return null;
 }
 
 /**
@@ -372,8 +450,14 @@ function buildConstraints(cellStates, size) {
  * here, by testing whether assuming the opposite breaks solvability.
  * Doesn't need or consult the precomputed solution at all.
  */
-function findForcedHint(cellStates, regions, size) {
-  const { forcedCol, excluded } = buildConstraints(cellStates, size);
+function findForcedHint(derived, regions, size) {
+  const forcedCol = placementConstraints(derived, size);
+  const excluded = new Set();
+  for (let r = 0; r < size; r++) {
+    for (let c = 0; c < size; c++) {
+      if (derived[r][c] === CELL_X) excluded.add(key(r, c));
+    }
+  }
 
   for (let row = 0; row < size; row++) {
     if (forcedCol[row] !== -1) continue;
@@ -401,24 +485,89 @@ function findForcedHint(cellStates, regions, size) {
 }
 
 /**
- * Finds the next best hint for the current board state, or null if the
- * puzzle is already solved.
+ * Runs rules 1-6 against a board state, in escalating order, returning the
+ * first deduction that applies. Exported so the individual rules can be
+ * unit-tested directly, without `getHint`'s wrong-placement/wrong-mark
+ * preamble in the way.
+ */
+export function deriveDeduction(state, regions, size) {
+  const candidates = computeCandidates(state, regions, size);
+  return (
+    findConflictHint(state, regions, size) ||
+    findRegionSubsetHint(state, regions, size, candidates, "row") ||
+    findRegionSubsetHint(state, regions, size, candidates, "column") ||
+    findAxisLockedHint(state, regions, size, candidates) ||
+    findNakedSingleHint(state, regions, size, candidates) ||
+    findForcedHint(state, regions, size)
+  );
+}
+
+const MAX_DERIVATION_STEPS = 400;
+
+/**
+ * Finds the next hint for the current board state, or null if the puzzle
+ * is already solved.
+ *
+ * Correctness here matters more than cleverness, because a wrong hint is
+ * worse than no hint — it actively walks the player into a dead end. So
+ * the engine takes only the player's *placements* as given and re-derives
+ * everything else itself, rather than trusting their ✕ marks:
+ *
+ *   1. If the placements admit no valid completion, nothing downstream is
+ *      meaningful — the honest hint is "one of these shamrocks is wrong",
+ *      naming the culprit, not a made-up deduction about a dead board.
+ *   2. If a ✕ sits on a cell that must hold a shamrock, say so, since
+ *      every hint the player derives from that mark themselves will be
+ *      wrong too.
+ *   3. Otherwise, derive deductions from the placements alone, replaying
+ *      the rules internally until one produces something the player hasn't
+ *      already marked — so the hint is always both sound and *new*.
  *
  * @param {string[][]} cellStates
  * @param {number[][]} regions
  * @param {number} size
  */
 export function getHint(cellStates, regions, size) {
-  const candidates = computeCandidates(cellStates, regions, size);
+  if (!hasValidCompletion(cellStates, regions, size)) {
+    return {
+      type: "remove",
+      reason: "wrong-placement",
+      cells: findWrongPlacements(cellStates, regions, size),
+    };
+  }
 
-  return (
-    findConflictHint(cellStates, regions, size) ||
-    findRegionSubsetHint(cellStates, regions, size, candidates, "row") ||
-    findRegionSubsetHint(cellStates, regions, size, candidates, "column") ||
-    findAxisLockedHint(cellStates, regions, size, candidates) ||
-    findNakedSingleHint(cellStates, regions, size, candidates) ||
-    findForcedHint(cellStates, regions, size)
-  );
+  const wrongMark = findWrongMark(cellStates, regions, size);
+  if (wrongMark) return wrongMark;
+
+  // Derived state starts from placements only — the player's ✕ marks are
+  // deliberately dropped, then re-derived below, so a bad mark can't feed
+  // back into the reasoning.
+  const derived = cellStates.map((row) => row.map((s) => (s === CELL_SHAMROCK ? CELL_SHAMROCK : CELL_EMPTY)));
+
+  for (let step = 0; step < MAX_DERIVATION_STEPS; step++) {
+    const hint = deriveDeduction(derived, regions, size);
+    if (!hint) return null;
+
+    if (hint.type === "place") {
+      const [r, c] = hint.cells[0];
+      if (cellStates[r][c] !== CELL_SHAMROCK) return hint;
+      derived[r][c] = CELL_SHAMROCK;
+      continue;
+    }
+
+    // Only surface eliminations the player hasn't already marked; anything
+    // they've covered is applied internally and the search continues, so
+    // repeated Hint presses keep moving forward instead of restating what
+    // is already on the board.
+    const unseen = hint.cells.filter(([r, c]) => cellStates[r][c] === CELL_EMPTY);
+    if (unseen.length > 0) return { ...hint, cells: unseen };
+
+    for (const [r, c] of hint.cells) {
+      if (derived[r][c] === CELL_EMPTY) derived[r][c] = CELL_X;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -487,6 +636,23 @@ export function describeHint(hint, regionNames) {
   const regionName = (id) => regionNames?.[id] ?? `region ${id + 1}`;
 
   switch (hint.reason) {
+    case "wrong-placement": {
+      const at = (cell) => `row ${ORDINAL(cell[0])}, column ${ORDINAL(cell[1])}`;
+      if (hint.cells.length === 1) {
+        return `There's no way to finish the puzzle from here — the shamrock at ${at(
+          hint.cells[0]
+        )} can't be right. It doesn't break a rule on its own, which is why nothing flagged it, but no arrangement of the rest fits around it. Tap it twice to clear it and carry on from there.`;
+      }
+      return `There's no way to finish the puzzle from here — more than one shamrock is in the wrong place, so no single one can be pinpointed. The ones still in play are at ${hint.cells
+        .map(at)
+        .join("; ")}. Clearing the most recent couple is usually the quickest way back.`;
+    }
+    case "wrong-mark": {
+      const [r, c] = hint.cells[0];
+      return `Row ${ORDINAL(r)}, column ${ORDINAL(
+        c
+      )} is marked with an ✕, but that's the one cell in this puzzle where its shamrock has to go. Clear the ✕ — any deduction built on it will lead you astray.`;
+    }
     case "conflict": {
       const [r, c] = hint.sourceCell;
       const plural = hint.cells.length > 1 ? "cells" : "cell";

@@ -1,11 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { getHint, computeCandidates, describeHint, solveByNamedRules } from "../hints.js";
+import { getHint, computeCandidates, describeHint, solveByNamedRules, deriveDeduction } from "../hints.js";
 import { createEmptyCellStates, CELL_SHAMROCK, CELL_EMPTY, CELL_X, isSolved } from "../validators.js";
 import { generatePuzzle } from "../generateGrid.js";
 
 // Four 2x2 quadrant regions on a 4x4 board — enough structure to exercise
 // each deduction rule without needing a full generated puzzle.
+//
+// Note it has TWO valid solutions — [(0,1),(1,3),(2,0),(3,2)] and
+// [(0,2),(1,0),(2,3),(3,1)] — which makes it a good stress fixture but a
+// board `getHint` would (correctly) refuse to reason about normally. The
+// per-rule tests below therefore call `deriveDeduction` directly, which is
+// the rule pipeline without `getHint`'s wrong-placement / wrong-mark
+// preamble; `getHint`'s own behaviour is covered separately further down.
 const QUADRANT_REGIONS = [
   [0, 0, 1, 1],
   [0, 0, 1, 1],
@@ -42,7 +49,7 @@ test("conflict rule: a placed shamrock produces an eliminate hint for its row/co
   const cellStates = createEmptyCellStates(size);
   cellStates[0][0] = CELL_SHAMROCK;
 
-  const hint = getHint(cellStates, QUADRANT_REGIONS, size);
+  const hint = deriveDeduction(cellStates, QUADRANT_REGIONS, size);
 
   assert.equal(hint.type, "eliminate");
   assert.equal(hint.reason, "conflict");
@@ -70,7 +77,7 @@ test("locked-candidate rule: a region confined to one row rules out the rest of 
   cellStates[1][2] = CELL_X;
   cellStates[1][3] = CELL_X;
 
-  const hint = getHint(cellStates, QUADRANT_REGIONS, size);
+  const hint = deriveDeduction(cellStates, QUADRANT_REGIONS, size);
 
   assert.equal(hint.type, "eliminate");
   assert.equal(hint.reason, "locked-row");
@@ -98,7 +105,7 @@ test("locked-candidate rule: a region confined to one column rules out the rest 
   cellStates[0][3] = CELL_X;
   cellStates[1][3] = CELL_X;
 
-  const hint = getHint(cellStates, QUADRANT_REGIONS, size);
+  const hint = deriveDeduction(cellStates, QUADRANT_REGIONS, size);
 
   assert.equal(hint.type, "eliminate");
   assert.equal(hint.reason, "locked-column");
@@ -135,7 +142,7 @@ test("naked-single rule: a region down to one candidate must take its shamrock t
   cellStates[2][2] = CELL_X;
   cellStates[3][2] = CELL_X;
 
-  const hint = getHint(cellStates, QUADRANT_REGIONS, size);
+  const hint = deriveDeduction(cellStates, QUADRANT_REGIONS, size);
 
   assert.equal(hint.type, "place");
   assert.equal(hint.reason, "naked-single-region");

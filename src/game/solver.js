@@ -128,18 +128,18 @@ export function findSolutions({ size, regions }, limit = 2) {
  *   column, or -1 if that row isn't pinned yet.
  * @param {Set<string>} excluded - "row,col" keys that may never hold the shamrock.
  * @param {number} [limit=1]
- * @returns {number} Number of consistent solutions found (capped at `limit`).
+ * @returns {number[][][]} Up to `limit` solutions, each an array of [row, col] pairs.
  */
-export function countConstrainedSolutions({ size, regions }, forcedCol, excluded, limit = 1) {
+export function findConstrainedSolutions({ size, regions }, forcedCol, excluded, limit = 1) {
   const usedCols = new Array(size).fill(false);
   const usedRegions = new Array(size).fill(false);
   const placedCol = new Array(size).fill(-1);
-  let found = 0;
+  const solutions = [];
 
   const backtrack = (row) => {
-    if (found >= limit) return;
+    if (solutions.length >= limit) return;
     if (row === size) {
-      found++;
+      solutions.push(placedCol.map((col, r) => [r, col]));
       return;
     }
 
@@ -165,13 +165,18 @@ export function countConstrainedSolutions({ size, regions }, forcedCol, excluded
       usedRegions[regionId] = false;
       placedCol[row] = -1;
 
-      if (found >= limit) return;
+      if (solutions.length >= limit) return;
       if (candidateCols) break;
     }
   };
 
   backtrack(0);
-  return found;
+  return solutions;
+}
+
+/** Count-only wrapper around `findConstrainedSolutions`. */
+export function countConstrainedSolutions({ size, regions }, forcedCol, excluded, limit = 1) {
+  return findConstrainedSolutions({ size, regions }, forcedCol, excluded, limit).length;
 }
 
 /**
