@@ -52,6 +52,10 @@ export default function HowToPlayModal({ open, onClose }) {
             handy for ruling out a whole line at once. It won't touch cells that already have a shamrock.
           </li>
           <li>
+            <strong className="text-riso-purple dark:text-riso-pink">↩ Undo.</strong> Takes back your last move —
+            press it again to keep stepping back. A whole swipe counts as one move. (Ctrl/⌘+Z works too.)
+          </li>
+          <li>
             <strong className="text-riso-purple dark:text-riso-pink">✅ Self-check.</strong> Placing a shamrock highlights
             its row, column, and region. Two shamrocks that break a rule flash red.
           </li>

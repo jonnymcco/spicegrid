@@ -23,6 +23,9 @@ import Footer from "./components/Footer.jsx";
 const BOARD_SIZE = 8;
 const SEEN_TUTORIAL_KEY = "lucky-patch:seen-how-to-play";
 const DARK_MODE_KEY = "lucky-patch:dark-mode";
+// Deep enough that undo never runs out mid-puzzle; bounded so a very long
+// session can't grow the stack without limit.
+const MAX_HISTORY = 200;
 
 function cycleCellState(state) {
   if (state === CELL_EMPTY) return CELL_X;
@@ -70,6 +73,10 @@ export default function App() {
   const [winOpen, setWinOpen] = useState(false);
   const [isDark, setIsDark] = useState(getInitialDarkMode);
   const [hint, setHint] = useState(null);
+  // Each entry is the board as it was *before* one player action. A swipe
+  // marks many cells but is a single action, so it contributes one entry —
+  // undoing a stroke shouldn't take eight presses.
+  const [history, setHistory] = useState([]);
 
   const regionColors = useMemo(
     () => assignRegionColors(puzzle.regions, puzzle.size, getRegionPalette(puzzle.size)),
@@ -134,6 +141,24 @@ export default function App() {
     setElapsedSeconds(0);
     setWinOpen(false);
     setHint(null);
+    setHistory([]);
+  };
+
+  /** Records the board as it stands, so the action about to happen can be undone. */
+  const recordUndoPoint = () => {
+    setHistory((h) => [...h, { cellStates, mistakeCount }].slice(-MAX_HISTORY));
+  };
+
+  const handleUndo = () => {
+    if (history.length === 0 || solved) return;
+    const previous = history[history.length - 1];
+    setCellStates(previous.cellStates);
+    // The mistake count rewinds too — leaving a mistake on the board for a
+    // move that no longer exists would be odd.
+    setMistakeCount(previous.mistakeCount);
+    setHistory(history.slice(0, -1));
+    setHint(null);
+    // The clock deliberately keeps running: undo takes back moves, not time.
   };
 
   const handleCellClick = (row, col) => {
@@ -149,6 +174,7 @@ export default function App() {
       }
     }
 
+    recordUndoPoint();
     setCellStates(next);
     setHint(null);
     if (!hasStarted) {
@@ -157,8 +183,13 @@ export default function App() {
     }
   };
 
-  const handleDragMarkCell = (row, col) => {
+  const handleDragMarkCell = (row, col, isStrokeStart) => {
     if (solved) return;
+
+    // One undo point per stroke, not per cell: a swipe across a row is a
+    // single action from the player's point of view, so taking it back
+    // should be a single press.
+    if (isStrokeStart) recordUndoPoint();
 
     // Functional update, not a closure read of `cellStates`: pointermove
     // fires one drag-marked cell at a time in quick succession, and this
@@ -186,6 +217,19 @@ export default function App() {
     }
   };
 
+  // Ctrl/Cmd+Z as well as the button — undo without the usual shortcut
+  // feels broken on a desktop keyboard.
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        handleUndo();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
   const closeHowTo = () => {
     setHowToOpen(false);
     localStorage.setItem(SEEN_TUTORIAL_KEY, "true");
@@ -203,6 +247,8 @@ export default function App() {
         onNewPuzzle={startNewPuzzle}
         onHint={handleGetHint}
         hintDisabled={solved}
+        onUndo={handleUndo}
+        undoDisabled={history.length === 0 || solved}
       />
 
       <main className="relative z-10 mx-auto flex w-full max-w-3xl flex-1 flex-col items-center gap-5 px-4 py-6 sm:px-6">

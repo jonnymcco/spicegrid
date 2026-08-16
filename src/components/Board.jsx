@@ -107,13 +107,15 @@ export default function Board({
       // pointer so tracking survives the finger sliding outside the
       // board's bounds for the rest of this gesture.
       boardRef.current?.setPointerCapture?.(event.pointerId);
-      onDragMarkCell(startRow, startCol);
+      // Flagged as the start of the stroke so the whole swipe collapses
+      // into a single undo step rather than one per cell crossed.
+      onDragMarkCell(startRow, startCol, true);
       drag.lastCell = drag.startCell;
     }
 
     const [lastRow, lastCol] = drag.lastCell;
     if (row === lastRow && col === lastCol) return;
-    onDragMarkCell(row, col);
+    onDragMarkCell(row, col, false);
     drag.lastCell = [row, col];
   };
 
