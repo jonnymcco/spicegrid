@@ -198,17 +198,35 @@ src/
   index.css                # Tailwind + riso texture utilities
 ```
 
-## Deploying (not set up yet — notes for later)
+## Deploying
 
-This is a static, client-only app — no backend, no env vars, no build-time secrets.
+Static, client-only — no backend, no env vars, no build-time secrets, nothing to configure at runtime.
 
-- **Build command**: `npm run build` → outputs static files to `dist/`.
-- **Base path**: `vite.config.js` sets `base: "./"`, so the build works from any sub-path (a custom domain
-  root, a GitHub Pages project path, etc.) without extra config.
-- **Hosting**: drop `dist/` on Vercel, Netlify, GitHub Pages, Cloudflare Pages, or any static file host.
-  No server-side rendering or API routes are involved.
-- **Fonts**: `index.html` currently loads Space Grotesk/Inter from Google Fonts over the network. For
-  fully offline/self-hosted builds, swap that `<link>` for locally bundled font files.
+`vercel.json` pins the build so it doesn't rely on framework auto-detection:
+
+| Setting | Value |
+| --- | --- |
+| Framework | `vite` |
+| Install | `npm ci` |
+| Build | `npm run build` |
+| Output | `dist` |
+
+**To connect Vercel** (one-time): New Project → import the `jonnymcco/spicegrid` repo → the settings above
+are picked up from `vercel.json`, so leave them alone → Deploy. Every push to the repo's default branch
+ships to production after that; other branches get preview URLs automatically.
+
+Notes worth knowing:
+
+- **Production branch** is whatever GitHub has set as the repo default. Vercel follows that, so renaming the
+  default branch means updating it in Vercel's Git settings too.
+- **No SPA rewrite is configured, deliberately.** There's no client-side routing, so a catch-all rewrite
+  would only serve `index.html` in place of genuine 404s and hide missing assets.
+- **Base path**: `vite.config.js` sets `base: "./"`, so the build also works unchanged from a sub-path
+  (GitHub Pages project sites, a nested route) rather than only at a domain root.
+- **Fonts**: `index.html` pulls Space Grotesk/Inter from Google Fonts at runtime. Fine on Vercel; for an
+  offline or strict-CSP deployment, swap that `<link>` for locally bundled font files.
+- **Verifying a build locally** the way the host sees it: `npm run build && npm run preview` serves the real
+  static output, which catches asset-path problems the dev server papers over.
 
 ## Future work (out of scope for this build)
 
