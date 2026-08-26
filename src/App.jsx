@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Analytics } from '@vercel/analytics/react';
 import { generatePuzzle } from "./game/generateGrid.js";
 import {
   CELL_SHAMROCK,
@@ -296,6 +297,7 @@ export default function App() {
         onNewPuzzle={startNewPuzzle}
         onClose={() => setWinOpen(false)}
       />
+      <Analytics />
     </div>
   );
 }
